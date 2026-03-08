@@ -2,31 +2,45 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>CONECTA T.O V13 - AUTO PLAY FIXED</title>
+    <title>CONECTA T.O V14 - HYBRID ENGINE</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; }
         #tv-screen { width: 100vw; height: 100vh; position: relative; }
-        iframe { width: 100%; height: 100%; border: none; position: absolute; z-index: 10; }
-        #static { position: absolute; width: 100%; height: 100%; background: url('https://upload.wikimedia.org/wikipedia/commons/5/5a/Static_noise.gif'); z-index: 20; display: none; opacity: 0.7; }
-        #no-signal { position: absolute; width: 100%; height: 100%; background: #000; z-index: 30; display: none; align-items: center; justify-content: center; flex-direction: column; color: #f00; font-family: sans-serif; }
-        .bang { font-size: 15rem; font-weight: 900; animation: bounce 0.5s infinite alternate; }
-        #info-bar { position: absolute; bottom: 8%; left: 5%; background: rgba(0,0,0,0.9); padding: 15px 40px; border-left: 10px solid #f00; opacity: 0; transition: 0.5s; z-index: 100; color: #fff; font-family: sans-serif; }
+        
+        /* Player Utama */
+        iframe { width: 100%; height: 100%; border: none; position: absolute; z-index: 10; transition: filter 0.5s; }
+
+        /* Efek Semut (Static) */
+        #noise-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: url('https://upload.wikimedia.org/wikipedia/commons/5/5a/Static_noise.gif'); 
+            z-index: 20; opacity: 0; pointer-events: none;
+        }
+
+        /* Kotak Nama & Golongan */
+        #info-bar { 
+            position: absolute; bottom: 8%; left: 5%; 
+            background: rgba(0,0,0,0.9); padding: 15px 40px; 
+            border-left: 10px solid #f00; opacity: 0; transition: 0.5s; 
+            z-index: 100; color: #fff; font-family: 'Arial Black', sans-serif; 
+        }
         #info-bar.show { opacity: 1; }
-        @keyframes bounce { from { transform: scale(1); } to { transform: scale(1.1); } }
+        .golongan { color: #ff0; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; }
+
+        /* Filter Hitam Putih untuk Analog */
+        .analog-bw { filter: grayscale(100%) contrast(120%); }
+        .analog-noise-active { opacity: 0.15 !important; }
     </style>
 </head>
 <body>
 
 <div id="tv-screen">
-    <div id="static"></div>
-    <div id="no-signal">
-        <div class="bang">!</div>
-        <h1 id="err-text">NO SIGNAL</h1>
-    </div>
-    <iframe id="player" allow="autoplay; fullscreen"></iframe>
+    <div id="noise-overlay"></div>
+    <iframe id="main-player" allow="autoplay; fullscreen"></iframe>
+
     <div id="info-bar">
-        <div id="type-txt" style="color:#ff0; font-size:0.8rem;">DIGITAL TV</div>
-        <h1 id="name-txt" style="margin:0; font-size:3rem; text-transform:uppercase;">OFFLINE</h1>
+        <div id="ch-gol" class="golongan">DIGITAL TV</div>
+        <h1 id="ch-name" style="margin:0; font-size:3rem; text-transform:uppercase;">LOADING...</h1>
     </div>
 </div>
 
@@ -43,57 +57,81 @@
     };
 
     const db = getDatabase(initializeApp(config));
-    const player = document.getElementById('player');
+    const player = document.getElementById('main-player');
     const info = document.getElementById('info-bar');
-    let channels = [];
+    const noise = document.getElementById('noise-overlay');
+
+    // Daftar Channel Permanen (Tanpa Center)
+    const channelList = [
+        { name: "Metro TV", id: "AUE5iHINUIw", type: "digital" },
+        { name: "iNews", id: "Kz3FK5FbBz8", type: "analog" },
+        { name: "Boomerang", id: "6a23sxk5_vM", type: "digital" },
+        { name: "Cartoon TV", id: "U8ZzsbxbYcE", type: "analog" },
+        { name: "Tom TV", id: "oV5gVoZQ7xU", type: "analog" }
+    ];
+
     let currentIdx = 0;
+    let analogInterval;
+    let noiseInterval;
 
-    // Mendengarkan perubahan data secara real-time
-    onValue(ref(db, 'conecta_tv'), (snap) => {
-        const data = snap.val();
-        if(!data || !data.channels) return;
-
-        channels = data.channels;
-        currentIdx = data.current_idx || 0;
-        const ch = channels[currentIdx];
-
-        if (!ch) return; // Menghindari eror jika channel baru saja dihapus
-
-        const isOff = data.power === "OFF" || (data.global_analog_off && ch.type === 'analog');
-
-        if (isOff) {
-            player.src = "";
-            document.getElementById('no-signal').style.display = "flex";
-            if (ch.type === 'analog') {
-                document.getElementById('static').style.display = "block";
-                document.getElementById('err-text').innerText = "ANALOG NOT SUPPORT";
-                document.querySelector('.bang').style.display = "none";
-            } else {
-                document.getElementById('static').style.display = "none";
-                document.getElementById('err-text').innerText = "NO SIGNAL";
-                document.querySelector('.bang').style.display = "block";
-            }
-        } else {
-            document.getElementById('static').style.display = "none";
-            document.getElementById('no-signal').style.display = "none";
-            
-            // Link dibuat permanen & dipaksa refresh jika ID berubah
-            const newSrc = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&mute=0&showinfo=0&rel=0&enablejsapi=1`;
-            if(player.src !== newSrc) {
-                player.src = newSrc;
-            }
-            
-            document.getElementById('name-txt').innerText = ch.name;
-            document.getElementById('type-txt').innerText = ch.type.toUpperCase() + " TV";
-            info.classList.add('show');
-            setTimeout(() => info.classList.remove('show'), 5000);
-        }
+    // Sinkronisasi dengan Remote Arrow (Database)
+    onValue(ref(db, 'conecta_tv/current_idx'), (snap) => {
+        currentIdx = snap.val() || 0;
+        playChannel(currentIdx);
     });
 
+    function playChannel(idx) {
+        const ch = channelList[idx];
+        player.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&mute=0&rel=0&enablejsapi=1`;
+        
+        document.getElementById('ch-name').innerText = ch.name;
+        document.getElementById('ch-gol').innerText = ch.type + " TV";
+        
+        // Munculkan Kotak Nama
+        info.classList.add('show');
+        setTimeout(() => info.classList.remove('show'), 5000);
+
+        // Reset Gangguan
+        clearInterval(analogInterval);
+        clearInterval(noiseInterval);
+        player.classList.remove('analog-bw');
+        noise.style.opacity = 0;
+
+        // Jika Analog, Aktifkan Gangguan
+        if (ch.type === "analog") {
+            startAnalogEffects();
+        }
+    }
+
+    function startAnalogEffects() {
+        // Efek Hitam Putih 5 detik setiap 1 menit
+        analogInterval = setInterval(() => {
+            player.classList.add('analog-bw');
+            setTimeout(() => {
+                player.classList.remove('analog-bw');
+            }, 5000);
+        }, 60000);
+
+        // Efek Semut tipis setiap 5 detik
+        noiseInterval = setInterval(() => {
+            noise.style.opacity = 0.15;
+            setTimeout(() => {
+                noise.style.opacity = 0;
+            }, 500);
+        }, 5000);
+    }
+
+    // Remote Control (Keyboard Arrow)
     window.addEventListener('keydown', (e) => {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-        if (e.key === "ArrowUp") update(ref(db, 'conecta_tv'), { current_idx: (currentIdx + 1) % channels.length, power: "ON" });
-        if (e.key === "ArrowDown") update(ref(db, 'conecta_tv'), { current_idx: (currentIdx - 1 + channels.length) % channels.length, power: "ON" });
+        if (e.key === "ArrowUp") {
+            let next = (currentIdx + 1) % channelList.length;
+            update(ref(db, 'conecta_tv'), { current_idx: next });
+        }
+        if (e.key === "ArrowDown") {
+            let prev = (currentIdx - 1 + channelList.length) % channelList.length;
+            update(ref(db, 'conecta_tv'), { current_idx: prev });
+        }
     });
 </script>
 </body>
