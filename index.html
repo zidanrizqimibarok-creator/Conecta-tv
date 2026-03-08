@@ -3,61 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA TV - Premium Broadcast</title>
+    <title>CONECTA TV Ultra</title>
     <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Inter', sans-serif; cursor: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; cursor: none; color: #fff; }
         
-        #video-container { width: 100vw; height: 100vh; position: relative; background: #000; }
-        .video-js { width: 100% !important; height: 100% !important; }
+        #video-container { width: 100vw; height: 100vh; position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
+        .video-js { width: 100% !important; height: 100% !important; z-index: 1; }
 
-        /* Noise Sinyal Teracak */
-        #no-signal {
+        /* --- Overlay Sinyal Teracak (Premium Satellite Animation) --- */
+        #no-signal-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: url('https://media.giphy.com/media/oEI9uWUicG3vA3nkpu/giphy.gif') center/cover;
+            background: radial-gradient(circle, #1a1a1a 0%, #000 100%);
             display: none; z-index: 10; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center;
         }
-        #no-signal h1 { color: white; background: rgba(255,0,0,0.7); padding: 10px 20px; font-size: 1.5rem; }
 
-        /* Channel Info Overlay */
+        /* Animasi Satelit Gerak */
+        .satellite-icon {
+            font-size: 5rem; margin-bottom: 20px;
+            animation: spin-satellite 10s linear infinite; /* Animasi berputar pelan */
+            opacity: 0.7;
+        }
+
+        #no-signal-overlay h1 { font-size: 1.8rem; font-weight: 300; letter-spacing: 2px; text-transform: uppercase; margin: 0; animation: pulse-text 2s infinite; }
+        #no-signal-overlay p { font-size: 1rem; color: #888; margin-top: 10px; }
+
+        @keyframes spin-satellite {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes pulse-text {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        /* --- Channel Info Overlay --- */
         #info-overlay {
             position: absolute; bottom: 8%; left: 5%;
-            background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
-            color: #fff; padding: 20px 50px; border-left: 8px solid #00d4ff;
-            opacity: 0; transition: opacity 0.4s ease; z-index: 20;
+            background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
+            padding: 20px 40px; border-left: 5px solid #ff4500;
+            opacity: 0; transition: opacity 0.4s ease, transform 0.4s ease;
+            transform: translateY(20px); z-index: 20; pointer-events: none;
         }
-        #info-overlay h2 { margin: 0; font-size: 3rem; font-weight: 800; letter-spacing: -1px; }
-        #info-overlay p { margin: 0; font-size: 1.2rem; color: #00d4ff; font-weight: bold; }
+        #info-overlay.show { opacity: 1; transform: translateY(0); }
+        #info-overlay h2 { margin: 0; font-size: 3.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: -2px; line-height: 1; }
+        #info-overlay p { margin: 0; font-size: 1.1rem; color: #ff4500; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
 
-        /* Watermark */
-        .brand { position: absolute; top: 30px; right: 40px; color: rgba(255,255,255,0.3); font-weight: bold; font-size: 1.2rem; z-index: 5; }
+        /* --- Watermark Level Conecta (Bawah Kiri Rada Atasan) --- */
+        .brand-watermark {
+            position: absolute; bottom: 15%; /* Rada atasan */
+            left: 20px; color: rgba(255,255,255,0.15); /* Sangat tipis */
+            font-weight: bold; font-size: 1rem; text-transform: uppercase;
+            letter-spacing: 3px; z-index: 5; pointer-events: none;
+        }
     </style>
 </head>
 <body>
 
 <div id="video-container">
-    <div class="brand">CONECTA TV</div>
+    <div class="brand-watermark">CONECTA</div>
     
-    <div id="no-signal">
-        <h1>SINYAL TERACAK</h1>
+    <div id="no-signal-overlay">
+        <div class="satellite-icon">📡</div>
+        <h1>Koneksi Terputus...</h1>
+        <p>Gunakan Remote (↑/↓) untuk ganti channel</p>
     </div>
 
-    <video id="main-player" class="video-js vjs-big-play-centered" preload="auto"></video>
+    <video id="tv-player" class="video-js vjs-big-play-centered" preload="auto"></video>
 
     <div id="info-overlay">
-        <p id="ui-ch-num">CHANNEL 01</p>
-        <h2 id="ui-ch-name">LOADING...</h2>
+        <p id="ui-ch-num">CH 01</p>
+        <h2 id="ui-ch-name">MEMUAT...</h2>
     </div>
 </div>
 
 <script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
 <script>
-    // Database Channel (Ganti URL dengan link .m3u8 aktif dari ip-tv.app)
-    const playlist = [
+    // Playlist Channel LENGKAP + RTV
+    const channels = [
         { name: "RCTI", url: "https://p.rctiplus.id/hls/rcti/v1/master.m3u8" },
         { name: "MNCTV", url: "https://p.rctiplus.id/hls/mnctv/v1/master.m3u8" },
         { name: "GTV", url: "https://p.rctiplus.id/hls/gtv/v1/master.m3u8" },
         { name: "iNews", url: "https://p.rctiplus.id/hls/inews/v1/master.m3u8" },
+        { name: "RTV", url: "https://example.com/rtv.m3u8" }, // <--- TAMBAHAN RTV
         { name: "SCTV", url: "https://example.com/sctv.m3u8" },
         { name: "Indosiar", url: "https://example.com/indosiar.m3u8" },
         { name: "Trans TV", url: "https://example.com/transtv.m3u8" },
@@ -67,65 +97,82 @@
         { name: "Kompas TV", url: "https://example.com/kompastv.m3u8" },
         { name: "NET TV", url: "https://example.com/nettv.m3u8" },
         { name: "TVRI Nasional", url: "https://example.com/tvri.m3u8" },
-        { name: "ANTV", url: "https://example.com/antv.m3u8" }
+        { name: "O Channel", url: "https://example.com/ochannel.m3u8" }, // <--- TAMBAHAN
+        { name: "JTV", url: "https://example.com/jtv.m3u8" }, // <--- TAMBAHAN
+        { name: "Test Sinyal Rusak", url: "https://invalid.url/stream.m3u8" } // Untuk test animasi
     ];
 
     let currentIdx = 0;
-    const player = videojs('main-player', {
+    let infoTimeout;
+
+    // Inisialisasi Player
+    const player = videojs('tv-player', {
         autoplay: true,
-        controls: false, // Benar-benar seperti TV, kontrol bar hilang
-        fluid: false
+        controls: false, // Hilangkan control bar, benar-benar seperti TV
+        fluid: false,
+        errorDisplay: false // Matikan error popup bawaan video.js
     });
 
-    const info = document.getElementById('info-overlay');
-    const signalDisplay = document.getElementById('no-signal');
+    const infoBox = document.getElementById('info-overlay');
+    const signalOverlay = document.getElementById('no-signal-overlay');
 
-    function switchChannel(index) {
-        signalDisplay.style.display = "none";
-        const target = playlist[index];
-        
-        // UI Update
-        document.getElementById('ui-ch-num').innerText = `CHANNEL ${(index + 1).toString().padStart(2, '0')}`;
-        document.getElementById('ui-ch-name').innerText = target.name;
-        
-        info.style.opacity = "1";
-        setTimeout(() => { info.style.opacity = "0"; }, 5000);
+    // Fungsi Ganti Channel
+    function playChannel(index) {
+        // Sembunyikan sinyal teracak
+        signalOverlay.style.display = "none";
+        player.reset(); 
 
-        // Load Stream
-        player.src({ type: 'application/x-mpegURL', src: target.url });
+        const ch = channels[index];
+        
+        // Update UI Info
+        document.getElementById('ui-ch-num').innerText = `CH ${(index + 1).toString().padStart(2, '0')}`;
+        document.getElementById('ui-ch-name').innerText = ch.name;
+        
+        // Tampilkan Info selama 5 detik
+        clearTimeout(infoTimeout);
+        infoBox.classList.add('show');
+        infoTimeout = setTimeout(() => { infoBox.classList.remove('show'); }, 5000);
+
+        // Load Sumber m3u8
+        player.src({ type: 'application/x-mpegURL', src: ch.url });
+        
+        // Coba putar, kalau gagal tampilkan animasi satelit
         player.play().catch(() => {
-            signalDisplay.style.display = "flex";
+            showSignalError();
         });
     }
 
-    // Auto Fullscreen Trigger
-    function enableFullscreen() {
-        const elem = document.documentElement;
-        if (elem.requestFullscreen) { elem.requestFullscreen(); }
-        else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); }
+    function showSignalError() {
+        signalOverlay.style.display = "flex";
     }
 
-    // Remote Navigation
-    window.addEventListener('keydown', (e) => {
-        // Trigger Fullscreen on first button press
-        enableFullscreen();
+    // Tangkap Error Player (Sinyal Teracak)
+    player.on('error', showSignalError);
 
-        if (e.key === "ArrowUp") {
-            currentIdx = (currentIdx - 1 + playlist.length) % playlist.length;
-            switchChannel(currentIdx);
-        } else if (e.key === "ArrowDown") {
-            currentIdx = (currentIdx + 1) % playlist.length;
-            switchChannel(currentIdx);
+    // Auto Fullscreen (Wajib klik/tekan tombol pertama kali)
+    function requestFullscreen() {
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    }
+
+    // Navigasi Remote (Wajib Keyboard)
+    window.addEventListener('keydown', (e) => {
+        // Aktifkan fullscreen pada pencetan tombol pertama
+        requestFullscreen();
+
+        if (e.key === "ArrowUp") { // Ganti ke channel sebelumnya
+            currentIdx = (currentIdx - 1 + channels.length) % channels.length;
+            playChannel(currentIdx);
+        } else if (e.key === "ArrowDown") { // Ganti ke channel berikutnya
+            currentIdx = (currentIdx + 1) % channels.length;
+            playChannel(currentIdx);
         }
     });
 
-    // Handle Error (Sinyal Teracak)
-    player.on('error', () => {
-        signalDisplay.style.display = "flex";
-    });
-
-    // Start
-    switchChannel(currentIdx);
+    // Mulai Channel Pertama
+    playChannel(currentIdx);
 </script>
+
 </body>
 </html>
