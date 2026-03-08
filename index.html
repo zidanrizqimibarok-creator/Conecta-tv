@@ -2,65 +2,55 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA TV V16</title>
+    <title>CONECTA TV V17 - EXTREME</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: 'Segoe UI', sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: 'Arial Black', sans-serif; }
         
-        /* Tombol Start */
-        #start-overlay {
+        /* Mesin Utama - Layer Transparan untuk Trigger */
+        #engine-trigger {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center;
+            z-index: 9999; background: rgba(0,0,0,0.1); display: flex;
+            align-items: center; justify-content: center; cursor: pointer;
         }
-        #start-overlay button {
-            padding: 25px 50px; font-size: 1.8rem; font-weight: 900; cursor: pointer;
-            background: #222; color: #00f2ff; border: 4px solid #00f2ff; border-radius: 15px;
-            box-shadow: 0 0 20px #00f2ff; transition: 0.3s;
-        }
-        #start-overlay button:hover { background: #00f2ff; color: #000; }
 
-        #tv-container { width: 100vw; height: 100vh; position: relative; }
+        #tv-frame { width: 100vw; height: 100vh; position: relative; }
         
-        /* Player di Layer Terdepan */
+        /* Video Player */
         iframe { width: 100%; height: 100%; border: none; position: absolute; z-index: 1; pointer-events: none; }
 
-        /* Kotak Info Nama Channel */
+        /* Kotak Nama Premium */
         #info-bar { 
-            position: absolute; bottom: 60px; left: 60px; 
+            position: absolute; bottom: 50px; left: 50px; 
             padding: 15px 40px; z-index: 100; opacity: 0; 
-            transition: transform 0.4s ease, opacity 0.4s;
-            background: rgba(0,0,0,0.85);
-            transform: translateY(30px);
+            transition: 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            background: #000; border-bottom: 8px solid #f00;
         }
-        #info-bar.show { opacity: 1; transform: translateY(0); }
+        #info-bar.show { opacity: 1; transform: scale(1.1); }
         
-        .digital-tag { border-left: 12px solid #00f2ff; }
-        .analog-tag { border-left: 12px solid #ffffff; }
+        .type-label { font-size: 0.9rem; color: #ff0; letter-spacing: 5px; display: block; }
+        #ch-title { margin: 0; font-size: 4rem; text-transform: uppercase; line-height: 1; }
 
-        #ch-title { margin: 0; font-size: 3.8rem; font-weight: 900; text-transform: uppercase; letter-spacing: -2px; }
-        .ch-type { font-size: 1rem; letter-spacing: 5px; color: #aaa; margin-bottom: 5px; display: block; }
-
-        /* Filter Analog Hitam Putih Permanen */
-        .analog-mode { filter: grayscale(100%) contrast(110%); }
+        /* Filter Analog Hitam Putih */
+        .mode-analog { filter: grayscale(100%) contrast(1.2); }
     </style>
 </head>
-<body onclick="powerOn()">
+<body>
 
-<div id="start-overlay">
-    <button onclick="powerOn()">NYALAKAN CONECTA TV</button>
+<div id="engine-trigger" onclick="bootEngine()">
+    <h2 id="msg">KETUK LAYAR UNTUK SINKRONISASI MESIN TV</h2>
 </div>
 
-<div id="tv-container">
-    <iframe id="tv-player" allow="autoplay; fullscreen"></iframe>
+<div id="tv-frame">
+    <iframe id="main-engine" allow="autoplay; fullscreen"></iframe>
     <div id="info-bar">
-        <span id="ch-type-label" class="ch-type">DIGITAL</span>
+        <span id="ch-type" class="type-label">DIGITAL</span>
         <h1 id="ch-title">OFFLINE</h1>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const config = {
         apiKey: "AIzaSyBoS3INezO0UQptcXYNZFbnPbmmf_hU8xc",
@@ -70,84 +60,79 @@
         appId: "1:384795261277:web:6a2b05dbea819b4f4590b4"
     };
 
-    const app = initializeApp(config);
-    const db = getDatabase(app);
-    const player = document.getElementById('tv-player');
+    const db = getDatabase(initializeApp(config));
+    const player = document.getElementById('main-engine');
     const info = document.getElementById('info-bar');
-
+    
     const channels = [
-        { name: "Metro TV", id: "AUE5iHINUIw", type: "digital" },
-        { name: "iNews", id: "Kz3FK5FbBz8", type: "analog" },
-        { name: "Boomerang", id: "6a23sxk5_vM", type: "digital" },
-        { name: "Cartoon TV", id: "U8ZzsbxbYcE", type: "analog" },
-        { name: "Tom TV", id: "oV5gVoZQ7xU", type: "analog" }
+        { n: "Metro TV", id: "AUE5iHINUIw", t: "digital" },
+        { n: "iNews", id: "Kz3FK5FbBz8", t: "analog" },
+        { n: "Boomerang", id: "6a23sxk5_vM", t: "digital" },
+        { n: "Cartoon TV", id: "U8ZzsbxbYcE", t: "analog" },
+        { n: "Tom TV", id: "oV5gVoZQ7xU", t: "analog" }
     ];
 
     let currentIdx = 0;
-    let isLive = false;
+    let engineReady = false;
 
-    window.powerOn = () => {
-        if(isLive) return;
-        isLive = true;
-        document.getElementById('start-overlay').style.display = 'none';
+    // MESIN BOOTING
+    window.bootEngine = () => {
+        engineReady = true;
+        document.getElementById('engine-trigger').style.display = 'none';
         
-        // Fullscreen Paksa
-        const doc = document.documentElement;
-        if (doc.requestFullscreen) doc.requestFullscreen();
+        // Paksa Fullscreen
+        if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
         
-        // Ambil data posisi terakhir
-        onValue(ref(db, 'conecta_tv/current_idx'), (snap) => {
-            const cloudIdx = snap.val() || 0;
-            if(currentIdx !== cloudIdx || player.src === "") {
-                currentIdx = cloudIdx;
-                loadChannel();
-            }
-        });
+        // Jalankan Mesin Sinkronisasi
+        startSync();
     };
 
-    function loadChannel() {
+    function startSync() {
+        onValue(ref(db, 'conecta_tv/current_idx'), (snap) => {
+            if(!engineReady) return;
+            currentIdx = snap.val() || 0;
+            runTV();
+        });
+    }
+
+    function runTV() {
         const ch = channels[currentIdx];
         if(!ch) return;
 
-        // Pasang Link Video
+        // Injeksi Link ke Player
         player.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&mute=0&rel=0&enablejsapi=1&origin=${window.location.origin}`;
         
-        // Update Teks & Kotak
-        document.getElementById('ch-title').innerText = ch.name;
-        document.getElementById('ch-type-label').innerText = ch.type.toUpperCase() + " TV";
+        // Tampilkan Nama Channel
+        document.getElementById('ch-title').innerText = ch.n;
+        document.getElementById('ch-type').innerText = ch.t.toUpperCase();
         
-        // Efek Hitam Putih jika Analog
-        if(ch.type === "analog") {
-            player.className = "analog-mode";
-            info.className = "analog-tag show";
-        } else {
-            player.className = "";
-            info.className = "digital-tag show";
-        }
+        // Mode Analog (Hitam Putih)
+        player.className = (ch.t === "analog") ? "mode-analog" : "";
         
-        // Hilangkan Kotak Info dalam 4 detik
-        setTimeout(() => info.classList.remove('show'), 4000);
+        // Animasi Kotak Nama
+        info.classList.add('show');
+        setTimeout(() => info.classList.remove('show'), 5000);
     }
 
-    // Remote PR/CH Keyboard (Arrow Up & Down)
+    // MESIN REMOTE PR/CH (Key Detection)
     window.addEventListener('keydown', (e) => {
-        if(!isLive) return;
-        
-        let newIdx = currentIdx;
+        if(!engineReady) return;
+
+        let next;
         if (e.key === "ArrowUp") {
-            newIdx = (currentIdx + 1) % channels.length;
+            next = (currentIdx + 1) % channels.length;
         } else if (e.key === "ArrowDown") {
-            newIdx = (currentIdx - 1 + channels.length) % channels.length;
+            next = (currentIdx - 1 + channels.length) % channels.length;
         } else {
-            return; // abaikan tombol lain
+            return;
         }
 
-        // Jalankan perubahan secara instan di layar
-        currentIdx = newIdx;
-        loadChannel();
+        // Eksekusi Instan (Tanpa Delay)
+        currentIdx = next;
+        runTV();
         
-        // Kirim laporan ke Cloud Firebase
-        set(ref(db, 'conecta_tv/current_idx'), newIdx);
+        // Update Cloud Database
+        update(ref(db, 'conecta_tv'), { current_idx: next });
     });
 </script>
 </body>
