@@ -2,24 +2,26 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>CONECTA T.O - ANALOG/DIGITAL TV</title>
+    <title>CONECTA T.O - ANALOG & DIGITAL</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; color: #fff; font-family: 'Arial Black', sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: 'Arial Black', sans-serif; cursor: none; }
         #tv-screen { width: 100vw; height: 100vh; position: relative; }
         iframe { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; }
-        
-        /* Mode Digital: No Signal Resmi */
-        #digital-off { 
-            position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; 
-            display: none; flex-direction: column; align-items: center; justify-content: center; 
-        }
-        .bang { font-size: 15rem; color: #ff0000; animation: bounce 0.5s infinite alternate; }
 
-        /* Mode Analog: Semut TV */
-        #analog-off {
-            position: absolute; width: 100%; height: 100%; z-index: 1001; display: none;
+        /* Layar No Signal (Digital) */
+        #digital-error { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #000; z-index: 1000; display: none; 
+            flex-direction: column; align-items: center; justify-content: center; 
+        }
+        .bang { font-size: 15rem; color: #f00; animation: bounce 0.5s infinite alternate; font-weight: 900; }
+
+        /* Efek Semut (Analog) */
+        #analog-error {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1001; display: none;
             background: url('https://upload.wikimedia.org/wikipedia/commons/5/5a/Static_noise.gif');
-            background-size: cover; opacity: 0.8;
+            opacity: 0.8; background-size: cover;
         }
 
         #info-bar {
@@ -34,15 +36,15 @@
 <body>
 
 <div id="tv-screen">
-    <div id="digital-off"><div class="bang">!</div><h1 style="color:#f00">NO SIGNAL</h1></div>
+    <div id="digital-error"><div class="bang">!</div><h1 style="color:#f00">NO SIGNAL</h1></div>
+    <div id="analog-error"></div>
     
-    <div id="analog-off"></div>
-
     <iframe id="main-player" allow="autoplay; fullscreen"></iframe>
 
     <div id="info-bar">
         <p id="ch-idx" style="margin:0; color:#f00; font-weight:bold;">CH</p>
         <h2 id="ch-title" style="margin:0; font-size:3.5rem;">LOADING...</h2>
+        <span id="ch-mode" style="font-size: 0.8rem; background: #444; padding: 2px 8px;">DIGITAL</span>
     </div>
 </div>
 
@@ -61,48 +63,53 @@
     const app = initializeApp(config);
     const db = getDatabase(app);
     const frame = document.getElementById('main-player');
-    const dOff = document.getElementById('digital-off');
-    const aOff = document.getElementById('analog-off');
+    const digiSc = document.getElementById('digital-error');
+    const anaSc = document.getElementById('analog-error');
     const infoBar = document.getElementById('info-bar');
 
-    let currentCH = 0;
-    let listCH = [];
+    let currentList = [];
+    let currentIdx = 0;
 
-    onValue(ref(db, 'conecta_v11'), (snap) => {
+    onValue(ref(db, 'conecta_system'), (snap) => {
         const data = snap.val();
-        if(!data) return;
+        if(!data || !data.channels) return;
 
-        listCH = data.channels || [];
-        currentCH = data.current_idx || 0;
-        const mode = data.signal_mode || 'digital'; // digital / analog
+        currentList = Object.values(data.channels);
+        currentIdx = data.status.current_ch || 0;
+        const ch = currentList[currentIdx] || currentList[0];
 
-        if (data.status === "OFF") {
+        if (data.status.connection === "OFF") {
             frame.src = "";
-            if(mode === 'analog') { aOff.style.display = "block"; dOff.style.display = "none"; }
-            else { dOff.style.display = "flex"; aOff.style.display = "none"; }
-        } else {
-            aOff.style.display = "none";
-            dOff.style.display = "none";
-            const ch = listCH[currentCH];
-            if(ch) {
-                frame.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&cc_load_policy=1&cc_lang_pref=id&hl=id`;
-                document.getElementById('ch-idx').innerText = `CH ${(currentCH + 1).toString().padStart(2, '0')}`;
-                document.getElementById('ch-title').innerText = ch.name;
-                infoBar.classList.add('show');
-                setTimeout(() => infoBar.classList.remove('show'), 5000);
+            if (ch.mode === "analog") {
+                anaSc.style.display = "block";
+                digiSc.style.display = "none";
+            } else {
+                digiSc.style.display = "flex";
+                anaSc.style.display = "none";
             }
+        } else {
+            anaSc.style.display = "none";
+            digiSc.style.display = "none";
+            frame.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&cc_load_policy=1&cc_lang_pref=id&hl=id`;
+            
+            document.getElementById('ch-idx').innerText = `CH ${(currentIdx + 1).toString().padStart(2, '0')}`;
+            document.getElementById('ch-title').innerText = ch.name;
+            document.getElementById('ch-mode').innerText = ch.mode.toUpperCase();
+            
+            infoBar.classList.add('show');
+            setTimeout(() => infoBar.classList.remove('show'), 5000);
         }
     });
 
     window.addEventListener('keydown', (e) => {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen();
         if (e.key === "ArrowUp" || e.keyCode === 427) {
-            let next = (currentCH + 1) % listCH.length;
-            update(ref(db, 'conecta_v11'), { current_idx: next, status: "ON" });
+            let next = (currentIdx + 1) % currentList.length;
+            update(ref(db, 'conecta_system/status'), { current_ch: next, connection: "ON" });
         }
         if (e.key === "ArrowDown" || e.keyCode === 428) {
-            let prev = (currentCH - 1 + listCH.length) % listCH.length;
-            update(ref(db, 'conecta_v11'), { current_idx: prev, status: "ON" });
+            let prev = (currentIdx - 1 + currentList.length) % currentList.length;
+            update(ref(db, 'conecta_system/status'), { current_ch: prev, connection: "ON" });
         }
     });
 </script>
