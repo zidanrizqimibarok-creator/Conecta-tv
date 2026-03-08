@@ -3,27 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA T.O V6 - NO SUBTITLE</title>
+    <title>CONECTA T.O V6 - NO SIGNAL EFFECT</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; color: #fff; font-family: 'Arial Black', sans-serif; }
         #booting { position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
         .boot-text { font-size: 3rem; letter-spacing: 15px; animation: flash 1.5s infinite; }
-        #yt-wrapper { width: 100%; height: 100%; }
+        
+        #yt-wrapper { width: 100%; height: 100%; position: relative; }
         iframe { width: 100%; height: 100%; border: none; }
         
+        /* EFEK NO SIGNAL (SEMUT TV) */
+        #no-signal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('https://upload.wikimedia.org/wikipedia/commons/5/5a/Static_noise.gif');
+            z-index: 800; display: none; pointer-events: none; opacity: 0.8;
+        }
+
         #dash {
             position: absolute; bottom: 5%; left: 3%; right: 3%;
             background: rgba(0,0,0,0.9); border-left: 12px solid #ff0000;
             padding: 20px 40px; transform: translateY(200%); transition: 0.5s;
-            z-index: 500; backdrop-filter: blur(8px);
+            z-index: 900; backdrop-filter: blur(8px);
         }
         #dash.show { transform: translateY(0); }
         .ch-name { font-size: 3.5rem; margin: 0; text-transform: uppercase; }
         .tag { padding: 5px 12px; font-size: 0.8rem; border-radius: 4px; margin-right: 5px; font-weight: bold; }
         .t-live { background: #ff0000; }
-
-        /* CSS KHUSUS HITAM PUTIH */
-        .analog-filter { filter: grayscale(100%) contrast(1.2) brightness(0.9); }
         
         @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
     </style>
@@ -33,16 +38,17 @@
 <div id="booting"><div class="boot-text">CONECTA T.O</div></div>
 
 <div id="yt-wrapper">
-    <iframe id="tv-frame" allow="autoplay; fullscreen" title="YouTube video player"></iframe>
+    <div id="no-signal"></div>
+    <iframe id="tv-frame" allow="autoplay; fullscreen"></iframe>
 </div>
 
 <div id="dash">
     <div style="margin-bottom: 5px;">
-        <span class="tag t-live" id="ch-type-tag">● DIGITAL</span>
+        <span class="tag t-live" id="mode-tag">● DIGITAL</span>
         <span id="ch-loc" class="tag" style="background:#0056b3">INDONESIA</span>
     </div>
     <h1 class="ch-name" id="ch-title">LOADING...</h1>
-    <p id="ch-desc" style="color: #aaa; margin: 5px 0 0 0;">Transmission: Color</p>
+    <p id="ch-desc" style="color: #aaa; margin: 5px 0 0 0;">Status: Signal Good</p>
 </div>
 
 <script>
@@ -55,31 +61,41 @@
     ];
 
     let current = 0;
+    let signalTimer = null;
     const frame = document.getElementById('tv-frame');
     const dash = document.getElementById('dash');
+    const noise = document.getElementById('no-signal');
 
     function play(idx) {
         const c = channels[idx];
         document.getElementById('ch-title').innerText = c.name;
         document.getElementById('ch-loc').innerText = c.loc;
         
-        // Cek apakah Analog (A) atau Digital (D)
+        // Bersihkan timer lama jika ada
+        clearInterval(signalTimer);
+        noise.style.display = "none";
+
         if(c.type === "A") {
-            frame.className = "analog-filter"; // Paksa Hitam Putih
-            document.getElementById('ch-type-tag').innerText = "● ANALOG";
-            document.getElementById('ch-type-tag').style.background = "#666";
-            document.getElementById('ch-desc').innerText = "Transmission: Grayscale (B/W)";
+            document.getElementById('mode-tag').innerText = "● ANALOG";
+            document.getElementById('mode-tag').style.background = "#666";
+            document.getElementById('ch-desc').innerText = "Status: Weak Signal (Analog)";
+            
+            // MESIN NO SIGNAL: Muncul tiap 10 detik selama 1 detik
+            signalTimer = setInterval(() => {
+                noise.style.display = "block";
+                setTimeout(() => {
+                    noise.style.display = "none";
+                }, 1000); // Lama semut muncul (1 detik)
+            }, 10000); // Jeda antar semut (10 detik)
+
         } else {
-            frame.className = ""; // Normal Berwarna
-            document.getElementById('ch-type-tag').innerText = "● DIGITAL";
-            document.getElementById('ch-type-tag').style.background = "#ff0000";
-            document.getElementById('ch-desc').innerText = "Transmission: Color (HD)";
+            document.getElementById('mode-tag').innerText = "● DIGITAL";
+            document.getElementById('mode-tag').style.background = "#ff0000";
+            document.getElementById('ch-desc').innerText = "Status: Strong Signal (Digital)";
         }
         
-        // cc_load_policy=0 untuk Hapus Subtitle
-        const videoSource = `https://www.youtube.com/embed/${c.id}?autoplay=1&controls=0&cc_load_policy=0&iv_load_policy=3&rel=0`;
-        
-        frame.src = videoSource;
+        // Hapus Subtitle (cc_load_policy=0)
+        frame.src = `https://www.youtube.com/embed/${c.id}?autoplay=1&controls=0&cc_load_policy=0&iv_load_policy=3&rel=0`;
 
         dash.classList.add('show');
         setTimeout(() => dash.classList.remove('show'), 5000);
@@ -95,10 +111,10 @@
     window.addEventListener('keydown', (e) => {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
 
-        if (e.key === "ArrowUp" || e.keyCode === 38 || e.keyCode === 427) {
+        if (e.key === "ArrowUp" || e.keyCode === 38) {
             current = (current + 1) % channels.length;
             play(current);
-        } else if (e.key === "ArrowDown" || e.keyCode === 40 || e.keyCode === 428) {
+        } else if (e.key === "ArrowDown" || e.keyCode === 40) {
             current = (current - 1 + channels.length) % channels.length;
             play(current);
         }
