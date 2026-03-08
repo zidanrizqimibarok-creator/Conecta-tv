@@ -3,63 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA TV V15</title>
+    <title>CONECTA TV V16</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: 'Segoe UI', sans-serif; }
         
-        /* Tombol Start agar Fullscreen & Remote Jalan */
-        #btn-start {
+        /* Tombol Start */
+        #start-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #111; z-index: 9999; display: flex; align-items: center; justify-content: center;
+            background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center;
         }
-        #btn-start button {
-            padding: 20px 40px; font-size: 1.5rem; font-weight: bold; cursor: pointer;
-            background: #f00; color: #fff; border: none; border-radius: 10px;
+        #start-overlay button {
+            padding: 25px 50px; font-size: 1.8rem; font-weight: 900; cursor: pointer;
+            background: #222; color: #00f2ff; border: 4px solid #00f2ff; border-radius: 15px;
+            box-shadow: 0 0 20px #00f2ff; transition: 0.3s;
         }
+        #start-overlay button:hover { background: #00f2ff; color: #000; }
 
-        #tv-screen { width: 100vw; height: 100vh; position: relative; }
+        #tv-container { width: 100vw; height: 100vh; position: relative; }
         
-        /* Video Player */
-        iframe { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
+        /* Player di Layer Terdepan */
+        iframe { width: 100%; height: 100%; border: none; position: absolute; z-index: 1; pointer-events: none; }
 
-        /* Noise Semut */
-        #noise { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: url('https://upload.wikimedia.org/wikipedia/commons/5/5a/Static_noise.gif'); 
-            z-index: 2; opacity: 0; pointer-events: none;
-        }
-
-        /* Kotak Nama */
+        /* Kotak Info Nama Channel */
         #info-bar { 
-            position: absolute; bottom: 50px; left: 50px; 
-            padding: 20px 40px; z-index: 100; opacity: 0; transition: 0.5s;
-            background: rgba(0,0,0,0.8);
+            position: absolute; bottom: 60px; left: 60px; 
+            padding: 15px 40px; z-index: 100; opacity: 0; 
+            transition: transform 0.4s ease, opacity 0.4s;
+            background: rgba(0,0,0,0.85);
+            transform: translateY(30px);
         }
-        #info-bar.show { opacity: 1; }
-        .digital-accent { border-left: 10px solid #00f2ff; }
-        .analog-accent { border-left: 10px solid #ffaa00; }
-        #ch-name { margin: 0; font-size: 3rem; text-transform: uppercase; }
-        .analog-bw { filter: grayscale(100%); }
+        #info-bar.show { opacity: 1; transform: translateY(0); }
+        
+        .digital-tag { border-left: 12px solid #00f2ff; }
+        .analog-tag { border-left: 12px solid #ffffff; }
+
+        #ch-title { margin: 0; font-size: 3.8rem; font-weight: 900; text-transform: uppercase; letter-spacing: -2px; }
+        .ch-type { font-size: 1rem; letter-spacing: 5px; color: #aaa; margin-bottom: 5px; display: block; }
+
+        /* Filter Analog Hitam Putih Permanen */
+        .analog-mode { filter: grayscale(100%) contrast(110%); }
     </style>
 </head>
-<body>
+<body onclick="powerOn()">
 
-<div id="btn-start">
-    <button onclick="nyalakanTV()">MASUK MODE TV / NYALAKAN</button>
+<div id="start-overlay">
+    <button onclick="powerOn()">NYALAKAN CONECTA TV</button>
 </div>
 
-<div id="tv-screen">
-    <div id="noise"></div>
-    <iframe id="main-player" allow="autoplay; fullscreen"></iframe>
+<div id="tv-container">
+    <iframe id="tv-player" allow="autoplay; fullscreen"></iframe>
     <div id="info-bar">
-        <div id="ch-gol" style="font-size: 0.8rem; letter-spacing: 2px;">DIGITAL</div>
-        <h1 id="ch-name">LOADING...</h1>
+        <span id="ch-type-label" class="ch-type">DIGITAL</span>
+        <h1 id="ch-title">OFFLINE</h1>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const config = {
         apiKey: "AIzaSyBoS3INezO0UQptcXYNZFbnPbmmf_hU8xc",
@@ -71,11 +72,10 @@
 
     const app = initializeApp(config);
     const db = getDatabase(app);
-    const player = document.getElementById('main-player');
+    const player = document.getElementById('tv-player');
     const info = document.getElementById('info-bar');
-    const noise = document.getElementById('noise');
 
-    const channelList = [
+    const channels = [
         { name: "Metro TV", id: "AUE5iHINUIw", type: "digital" },
         { name: "iNews", id: "Kz3FK5FbBz8", type: "analog" },
         { name: "Boomerang", id: "6a23sxk5_vM", type: "digital" },
@@ -84,68 +84,70 @@
     ];
 
     let currentIdx = 0;
-    let tvAktif = false;
-    let intA, intN;
+    let isLive = false;
 
-    window.nyalakanTV = () => {
-        tvAktif = true;
-        document.getElementById('btn-start').style.display = 'none';
+    window.powerOn = () => {
+        if(isLive) return;
+        isLive = true;
+        document.getElementById('start-overlay').style.display = 'none';
         
-        // Minta Fullscreen Paksa
-        const el = document.documentElement;
-        if (el.requestFullscreen) el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        // Fullscreen Paksa
+        const doc = document.documentElement;
+        if (doc.requestFullscreen) doc.requestFullscreen();
         
-        syncData();
+        // Ambil data posisi terakhir
+        onValue(ref(db, 'conecta_tv/current_idx'), (snap) => {
+            const cloudIdx = snap.val() || 0;
+            if(currentIdx !== cloudIdx || player.src === "") {
+                currentIdx = cloudIdx;
+                loadChannel();
+            }
+        });
     };
 
-    function syncData() {
-        onValue(ref(db, 'conecta_tv/current_idx'), (snap) => {
-            if(!tvAktif) return;
-            currentIdx = snap.val() || 0;
-            updateLayar();
-        });
-    }
-
-    function updateLayar() {
-        const ch = channelList[currentIdx];
+    function loadChannel() {
+        const ch = channels[currentIdx];
         if(!ch) return;
 
-        player.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&mute=0&rel=0&enablejsapi=1`;
+        // Pasang Link Video
+        player.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&mute=0&rel=0&enablejsapi=1&origin=${window.location.origin}`;
         
-        document.getElementById('ch-name').innerText = ch.name;
-        document.getElementById('ch-gol').innerText = ch.type.toUpperCase() + " TV";
+        // Update Teks & Kotak
+        document.getElementById('ch-title').innerText = ch.name;
+        document.getElementById('ch-type-label').innerText = ch.type.toUpperCase() + " TV";
         
-        info.className = (ch.type === "digital") ? "digital-accent show" : "analog-accent show";
-        setTimeout(() => info.classList.remove('show'), 4000);
-
-        // Reset Efek Analog
-        clearInterval(intA); clearInterval(intN);
-        player.classList.remove('analog-bw'); noise.style.opacity = 0;
-        
-        if (ch.type === "analog") {
-            intA = setInterval(() => {
-                player.classList.add('analog-bw');
-                setTimeout(() => player.classList.remove('analog-bw'), 5000);
-            }, 60000);
-            intN = setInterval(() => {
-                noise.style.opacity = 0.15;
-                setTimeout(() => noise.style.opacity = 0, 500);
-            }, 5000);
+        // Efek Hitam Putih jika Analog
+        if(ch.type === "analog") {
+            player.className = "analog-mode";
+            info.className = "analog-tag show";
+        } else {
+            player.className = "";
+            info.className = "digital-tag show";
         }
+        
+        // Hilangkan Kotak Info dalam 4 detik
+        setTimeout(() => info.classList.remove('show'), 4000);
     }
 
-    // Fungsi Remote Keyboard
+    // Remote PR/CH Keyboard (Arrow Up & Down)
     window.addEventListener('keydown', (e) => {
-        if(!tvAktif) return;
-        let next;
+        if(!isLive) return;
+        
+        let newIdx = currentIdx;
         if (e.key === "ArrowUp") {
-            next = (currentIdx + 1) % channelList.length;
-            update(ref(db, 'conecta_tv'), { current_idx: next });
+            newIdx = (currentIdx + 1) % channels.length;
         } else if (e.key === "ArrowDown") {
-            next = (currentIdx - 1 + channelList.length) % channelList.length;
-            update(ref(db, 'conecta_tv'), { current_idx: next });
+            newIdx = (currentIdx - 1 + channels.length) % channels.length;
+        } else {
+            return; // abaikan tombol lain
         }
+
+        // Jalankan perubahan secara instan di layar
+        currentIdx = newIdx;
+        loadChannel();
+        
+        // Kirim laporan ke Cloud Firebase
+        set(ref(db, 'conecta_tv/current_idx'), newIdx);
     });
 </script>
 </body>
