@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA T.O V6 - ANALOG NO SIGNAL</title>
+    <title>CONECTA T.O V6 - NO SIGNAL FIX</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; color: #fff; font-family: 'Arial Black', sans-serif; }
         #booting { position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
@@ -12,11 +12,16 @@
         #yt-wrapper { width: 100%; height: 100%; position: relative; }
         iframe { width: 100%; height: 100%; border: none; }
 
-        /* EFEK NO SIGNAL (SEMUT TV) */
-        #no-signal {
+        /* TAMPILAN NO SIGNAL (KOTAK PESAN) */
+        #no-signal-box {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: url('https://upload.wikimedia.org/wikipedia/commons/5/5a/Static_noise.gif');
-            z-index: 900; display: none; opacity: 0.8;
+            background: #000; z-index: 900; display: none;
+            align-items: center; justify-content: center;
+        }
+        .error-msg {
+            padding: 20px 50px; border: 4px solid #fff;
+            font-size: 2.5rem; background: #000; color: #fff;
+            box-shadow: 0 0 20px rgba(255,255,255,0.5);
         }
 
         #dash {
@@ -31,7 +36,7 @@
         .t-live { background: #ff0000; }
         
         /* CSS HITAM PUTIH */
-        .analog-bw { filter: grayscale(100%); }
+        .analog-bw { filter: grayscale(100%) contrast(1.1); }
 
         @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
     </style>
@@ -41,7 +46,9 @@
 <div id="booting"><div class="boot-text">CONECTA T.O</div></div>
 
 <div id="yt-wrapper">
-    <div id="no-signal"></div>
+    <div id="no-signal-box">
+        <div class="error-msg">! NO SIGNAL</div>
+    </div>
     <iframe id="tv-frame" allow="autoplay; fullscreen" title="YouTube video player"></iframe>
 </div>
 
@@ -67,10 +74,10 @@
     let signalInterval;
     const frame = document.getElementById('tv-frame');
     const dash = document.getElementById('dash');
-    const nosignal = document.getElementById('no-signal');
+    const nosignal = document.getElementById('no-signal-box');
 
     function play(idx) {
-        clearInterval(signalInterval); // Reset mesin semut
+        clearInterval(signalInterval); // Hentikan mesin signal lama
         nosignal.style.display = "none";
 
         const c = channels[idx];
@@ -84,16 +91,18 @@
             frame.classList.add("analog-bw"); // Paksa Hitam Putih
             document.getElementById('mode-text').innerText = "● ANALOG";
             document.getElementById('mode-text').style.background = "#555";
+            document.getElementById('ch-desc').innerText = "Status: Weak Signal";
             
             // MESIN NO SIGNAL 10 DETIK SEKALI
             signalInterval = setInterval(() => {
-                nosignal.style.display = "block";
-                setTimeout(() => { nosignal.style.display = "none"; }, 800); // Semut muncul 0.8 detik
+                nosignal.style.display = "flex"; // Munculkan tulisan ! NO SIGNAL
+                setTimeout(() => { nosignal.style.display = "none"; }, 1500); // Hilang setelah 1.5 detik
             }, 10000);
 
         } else {
             document.getElementById('mode-text').innerText = "● LIVE";
             document.getElementById('mode-text').style.background = "#ff0000";
+            document.getElementById('ch-desc').innerText = "Status: Digital Color HD";
         }
         
         // cc_load_policy=0 hapus subtitle
@@ -112,7 +121,7 @@
         }, 3000);
     };
 
-    // --- TEMPAT SAKRAL PR/CH (TIDAK DIUBAH) ---
+    // --- TEMPAT SAKRAL PR/CH (V6 ASLI) ---
     window.addEventListener('keydown', (e) => {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
 
@@ -124,7 +133,6 @@
             play(current);
         }
     });
-    // ------------------------------------------
 </script>
 </body>
 </html>
