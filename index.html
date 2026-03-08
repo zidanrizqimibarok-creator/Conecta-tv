@@ -2,23 +2,30 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>CONECTA T.O - TV V10</title>
+    <title>CONECTA T.O - ANALOG/DIGITAL TV</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: 'Arial Black', sans-serif; cursor: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; color: #fff; font-family: 'Arial Black', sans-serif; }
         #tv-screen { width: 100vw; height: 100vh; position: relative; }
         iframe { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; }
         
-        #error-screen { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #000; z-index: 1000; display: none; 
-            flex-direction: column; align-items: center; justify-content: center; 
+        /* Mode Digital: No Signal Resmi */
+        #digital-off { 
+            position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; 
+            display: none; flex-direction: column; align-items: center; justify-content: center; 
         }
-        .bang { font-size: 15rem; color: #ff0000; animation: bounce 0.5s infinite alternate; font-weight: 900; }
-        
+        .bang { font-size: 15rem; color: #ff0000; animation: bounce 0.5s infinite alternate; }
+
+        /* Mode Analog: Semut TV */
+        #analog-off {
+            position: absolute; width: 100%; height: 100%; z-index: 1001; display: none;
+            background: url('https://upload.wikimedia.org/wikipedia/commons/5/5a/Static_noise.gif');
+            background-size: cover; opacity: 0.8;
+        }
+
         #info-bar {
             position: absolute; bottom: 8%; left: 5%;
             background: rgba(0,0,0,0.9); padding: 15px 45px; border-left: 10px solid #f00;
-            opacity: 0; transition: 0.4s; z-index: 110;
+            opacity: 0; transition: 0.4s; z-index: 1100;
         }
         #info-bar.show { opacity: 1; }
         @keyframes bounce { from { transform: scale(1); } to { transform: scale(1.1); } }
@@ -27,8 +34,12 @@
 <body>
 
 <div id="tv-screen">
-    <div id="error-screen"><div class="bang">!</div><h1 style="color:#f00">NO SIGNAL</h1></div>
+    <div id="digital-off"><div class="bang">!</div><h1 style="color:#f00">NO SIGNAL</h1></div>
+    
+    <div id="analog-off"></div>
+
     <iframe id="main-player" allow="autoplay; fullscreen"></iframe>
+
     <div id="info-bar">
         <p id="ch-idx" style="margin:0; color:#f00; font-weight:bold;">CH</p>
         <h2 id="ch-title" style="margin:0; font-size:3.5rem;">LOADING...</h2>
@@ -37,7 +48,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const config = {
         apiKey: "AIzaSyBoS3INezO0UQptcXYNZFbnPbmmf_hU8xc",
@@ -50,56 +61,48 @@
     const app = initializeApp(config);
     const db = getDatabase(app);
     const frame = document.getElementById('main-player');
-    const errSc = document.getElementById('error-screen');
+    const dOff = document.getElementById('digital-off');
+    const aOff = document.getElementById('analog-off');
     const infoBar = document.getElementById('info-bar');
 
     let currentCH = 0;
-    const defaultCH = [
-        { name: "Upin Ipin Live", id: "live_stream?channel=UCp0C_O9vV3-O3_Vn2p8mC9g" },
-        { name: "Disney Kids", id: "P2v6i_L_S_0" },
-        { name: "Marvel TV", id: "rS8_6t6SIsE" },
-        { name: "Boomerang TV", id: "65IsA_SshL4" },
-        { name: "Disney Channel", id: "w7pYhp496tg" },
-        { name: "TVRI World", id: "eE5E8MXQpqc" },
-        { name: "TVRI Sport", id: "6a23sxk5_vM" },
-        { name: "Kompas TV", id: "2MC5ltEDu7w" },
-        { name: "CNN Indonesia", id: "YbQwgoMoztA" },
-        { name: "Al Jazeera", id: "_HviSyC7zSU" }
-    ];
+    let listCH = [];
 
-    onValue(ref(db, 'conecta_status'), (snap) => {
+    onValue(ref(db, 'conecta_v11'), (snap) => {
         const data = snap.val();
         if(!data) return;
 
-        if (data.connection === "OFF") {
-            errSc.style.display = "flex";
-            frame.src = "";
-        } else {
-            errSc.style.display = "none";
-            currentCH = data.current_ch || 0;
-            const ch = defaultCH[currentCH];
-            
-            // Logika Paksa Ganti Nama/URL dari Center
-            const finalId = data.force_url || ch.id;
-            const finalName = data.force_name || ch.name;
+        listCH = data.channels || [];
+        currentCH = data.current_idx || 0;
+        const mode = data.signal_mode || 'digital'; // digital / analog
 
-            frame.src = `https://www.youtube.com/embed/${finalId}?autoplay=1&controls=0&cc_load_policy=1&cc_lang_pref=id&hl=id`;
-            document.getElementById('ch-idx').innerText = `CHANNEL ${(currentCH + 1).toString().padStart(2, '0')}`;
-            document.getElementById('ch-title').innerText = finalName;
-            
-            infoBar.classList.add('show');
-            setTimeout(() => infoBar.classList.remove('show'), 5000);
+        if (data.status === "OFF") {
+            frame.src = "";
+            if(mode === 'analog') { aOff.style.display = "block"; dOff.style.display = "none"; }
+            else { dOff.style.display = "flex"; aOff.style.display = "none"; }
+        } else {
+            aOff.style.display = "none";
+            dOff.style.display = "none";
+            const ch = listCH[currentCH];
+            if(ch) {
+                frame.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&cc_load_policy=1&cc_lang_pref=id&hl=id`;
+                document.getElementById('ch-idx').innerText = `CH ${(currentCH + 1).toString().padStart(2, '0')}`;
+                document.getElementById('ch-title').innerText = ch.name;
+                infoBar.classList.add('show');
+                setTimeout(() => infoBar.classList.remove('show'), 5000);
+            }
         }
     });
 
     window.addEventListener('keydown', (e) => {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-        // Pastikan Remote Tetap Fungsi meski abis No Signal
         if (e.key === "ArrowUp" || e.keyCode === 427) {
-            update(ref(db, 'conecta_status'), { current_ch: (currentCH + 1) % defaultCH.length, force_url: null, force_name: null, connection: "ON" });
+            let next = (currentCH + 1) % listCH.length;
+            update(ref(db, 'conecta_v11'), { current_idx: next, status: "ON" });
         }
         if (e.key === "ArrowDown" || e.keyCode === 428) {
-            update(ref(db, 'conecta_status'), { current_ch: (currentCH - 1 + defaultCH.length) % defaultCH.length, force_url: null, force_name: null, connection: "ON" });
+            let prev = (currentCH - 1 + listCH.length) % listCH.length;
+            update(ref(db, 'conecta_v11'), { current_idx: prev, status: "ON" });
         }
     });
 </script>
