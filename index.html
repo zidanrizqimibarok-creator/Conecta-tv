@@ -2,28 +2,29 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>CONECTA T.O V14.1 - HYBRID ENGINE</title>
+    <title>CONECTA T.O V14.2 - ULTRA STABLE</title>
     <style>
         body, html { 
             margin: 0; padding: 0; width: 100%; height: 100%; 
-            background: #000; overflow: hidden; cursor: none; 
+            background: #000; overflow: hidden; cursor: default;
         }
-        #tv-screen { width: 100vw; height: 100vh; position: relative; }
+        #tv-screen { width: 100vw; height: 100vh; position: relative; display: none; }
         
-        /* Player Utama */
-        iframe { 
-            width: 100%; height: 100%; border: none; 
-            position: absolute; z-index: 10; transition: filter 0.5s; 
+        /* Layar Awal (Penting agar PR/CH Jalan) */
+        #start-screen {
+            position: absolute; width: 100%; height: 100%; background: #111;
+            z-index: 999; display: flex; align-items: center; justify-content: center;
+            color: white; font-family: sans-serif; cursor: pointer;
         }
 
-        /* Efek Semut (Static) */
+        iframe { width: 100%; height: 100%; border: none; position: absolute; z-index: 10; pointer-events: none; }
+
         #noise-overlay { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             background: url('https://upload.wikimedia.org/wikipedia/commons/5/5a/Static_noise.gif'); 
             z-index: 20; opacity: 0; pointer-events: none;
         }
 
-        /* Kotak Nama & Golongan */
         #info-bar { 
             position: absolute; bottom: 8%; left: 5%; 
             background: rgba(0,0,0,0.9); padding: 15px 40px; 
@@ -32,17 +33,18 @@
         }
         #info-bar.show { opacity: 1; }
         .golongan { color: #ff0; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; }
-
-        /* Filter Analog */
         .analog-bw { filter: grayscale(100%) contrast(120%); }
     </style>
 </head>
-<body>
+<body onclick="startTV()">
+
+<div id="start-screen">
+    <h1 style="border: 2px solid white; padding: 20px;">KLIK UNTUK MENYALAKAN TV<br><small style="font-size: 1rem;">(Agar Remote/Keyboard Berfungsi)</small></h1>
+</div>
 
 <div id="tv-screen">
     <div id="noise-overlay"></div>
     <iframe id="main-player" allow="autoplay; fullscreen"></iframe>
-
     <div id="info-bar">
         <div id="ch-gol" class="golongan">DIGITAL TV</div>
         <h1 id="ch-name" style="margin:0; font-size:3rem; text-transform:uppercase;">LOADING...</h1>
@@ -66,8 +68,9 @@
     const player = document.getElementById('main-player');
     const info = document.getElementById('info-bar');
     const noise = document.getElementById('noise-overlay');
+    const startScreen = document.getElementById('start-screen');
+    const tvScreen = document.getElementById('tv-screen');
 
-    // Daftar Channel Permanen
     const channelList = [
         { name: "Metro TV", id: "AUE5iHINUIw", type: "digital" },
         { name: "iNews", id: "Kz3FK5FbBz8", type: "analog" },
@@ -77,10 +80,26 @@
     ];
 
     let currentIdx = 0;
+    let isStarted = false;
     let analogInterval, noiseInterval;
 
-    // 1. Sinkronisasi Database
+    window.startTV = () => {
+        if(isStarted) return;
+        isStarted = true;
+        startScreen.style.display = "none";
+        tvScreen.style.display = "block";
+        document.body.style.cursor = "none";
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+        
+        // Ambil posisi channel terakhir dari Firebase
+        get(ref(db, 'conecta_tv/current_idx')).then((snap) => {
+            currentIdx = snap.val() || 0;
+            playChannel(currentIdx);
+        });
+    };
+
     onValue(ref(db, 'conecta_tv/current_idx'), (snap) => {
+        if(!isStarted) return;
         const val = snap.val();
         currentIdx = (val !== null) ? val : 0;
         playChannel(currentIdx);
@@ -89,64 +108,39 @@
     function playChannel(idx) {
         const ch = channelList[idx];
         if(!ch) return;
-
         const newSrc = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&mute=0&rel=0&enablejsapi=1`;
-        
-        if(player.src !== newSrc) {
-            player.src = newSrc;
-        }
+        if(player.src !== newSrc) player.src = newSrc;
         
         document.getElementById('ch-name').innerText = ch.name;
         document.getElementById('ch-gol').innerText = ch.type + " TV";
-        
         info.classList.add('show');
         setTimeout(() => info.classList.remove('show'), 5000);
 
-        // Reset Efek Analog
-        clearInterval(analogInterval);
-        clearInterval(noiseInterval);
-        player.classList.remove('analog-bw');
-        noise.style.opacity = 0;
-
-        if (ch.type === "analog") {
-            startAnalogEffects();
-        }
+        clearInterval(analogInterval); clearInterval(noiseInterval);
+        player.classList.remove('analog-bw'); noise.style.opacity = 0;
+        if (ch.type === "analog") startAnalogEffects();
     }
 
     function startAnalogEffects() {
-        // Efek Hitam Putih 5 detik setiap 1 menit
         analogInterval = setInterval(() => {
             player.classList.add('analog-bw');
             setTimeout(() => player.classList.remove('analog-bw'), 5000);
         }, 60000);
-
-        // Efek Semut setiap 5 detik
         noiseInterval = setInterval(() => {
             noise.style.opacity = 0.15;
             setTimeout(() => noise.style.opacity = 0, 500);
         }, 5000);
     }
 
-    // 2. Fungsi Pindah Channel (Wajib ke Firebase)
     async function changeCH(delta) {
-        const snapshot = await get(ref(db, 'conecta_tv/current_idx'));
-        let nowIdx = snapshot.val() || 0;
-        let nextIdx = (nowIdx + delta + channelList.length) % channelList.length;
-        
-        update(ref(db, 'conecta_tv'), { 
-            current_idx: nextIdx
-        });
+        let nextIdx = (currentIdx + delta + channelList.length) % channelList.length;
+        update(ref(db, 'conecta_tv'), { current_idx: nextIdx });
     }
 
-    // 3. Remote Control Keyboard
     window.addEventListener('keydown', (e) => {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
-
-        if (e.key === "ArrowUp") {
-            changeCH(1);
-        } else if (e.key === "ArrowDown") {
-            changeCH(-1);
-        }
+        if(!isStarted) return;
+        if (e.key === "ArrowUp") changeCH(1);
+        if (e.key === "ArrowDown") changeCH(-1);
     });
 </script>
 </body>
