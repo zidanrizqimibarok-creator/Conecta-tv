@@ -2,37 +2,68 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>CONECTA T.O - TV SCREEN</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONECTA T.O - TV SCREEN FIXED</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: sans-serif; }
-        #tv-screen { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; }
-        iframe { width: 100%; height: 100%; border: none; }
-        
-        /* Layar Putus Koneksi (!) */
+        /* Menghilangkan margin dan padding agar benar-benar full screen */
+        body, html { 
+            margin: 0; padding: 0; 
+            width: 100%; height: 100%; 
+            background: #000; overflow: hidden; 
+            color: #fff; font-family: 'Arial Black', sans-serif; 
+        }
+
+        /* Container utama TV agar selalu Center */
+        #tv-container { 
+            position: relative;
+            width: 100vw; height: 100vh; 
+            display: flex; align-items: center; justify-content: center; 
+        }
+
+        /* Iframe dibuat paksa memenuhi layar */
+        iframe { 
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; 
+            border: none; z-index: 1;
+        }
+
+        /* Dashboard Info (Nama Channel) */
+        #dash {
+            position: absolute; bottom: 50px; left: 50px; 
+            background: rgba(0,0,0,0.8); border-left: 12px solid #ff0000;
+            padding: 20px 40px; z-index: 10;
+            transform: translateY(200%); transition: transform 0.5s ease-out;
+            pointer-events: none;
+        }
+        #dash.show { transform: translateY(0); }
+        .ch-title { font-size: 3.5rem; margin: 0; text-transform: uppercase; color: #fff; }
+
+        /* Layar Putus Koneksi / Kill Switch (!) */
         #kill-screen { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             background: #000; z-index: 1000; display: none; 
             flex-direction: column; align-items: center; justify-content: center; 
         }
-        .bang { font-size: 15rem; color: #ff0000; animation: bounce 0.5s infinite alternate; font-weight: 900; }
-        @keyframes bounce { from { transform: scale(1); } to { transform: scale(1.1); } }
-
-        /* Dashboard */
-        #dash {
-            position: absolute; bottom: 5%; left: 3%; background: rgba(0,0,0,0.9);
-            border-left: 10px solid #f00; padding: 20px; transition: 0.5s; transform: translateY(200%);
+        .bang { 
+            font-size: 18rem; color: #ff0000; font-weight: 900;
+            animation: bounce 0.5s infinite alternate; 
         }
-        #dash.show { transform: translateY(0); }
+        @keyframes bounce { from { transform: scale(1); } to { transform: scale(1.1); } }
     </style>
 </head>
 <body>
 
-<div id="tv-screen">
-    <div id="kill-screen"><div class="bang">!</div><h1>KONEKSI DIPUTUS PUSAT</h1></div>
+<div id="tv-container">
+    <div id="kill-screen">
+        <div class="bang">!</div>
+        <h1 style="letter-spacing: 10px; color: #f00;">KONEKSI TERPUTUS</h1>
+    </div>
+
     <iframe id="main-player" allow="autoplay; fullscreen"></iframe>
+
     <div id="dash">
-        <h1 id="ch-name" style="margin:0; font-size:3rem; text-transform:uppercase;">OFFLINE</h1>
-        <p id="ch-meta" style="color:#f00; font-weight:bold;">SISTEM SIAP</p>
+        <p style="margin:0; color:#ff0000; font-weight:bold;">CONECTA T.O LIVE</p>
+        <h1 id="ch-name" class="ch-title">MENUNGGU PUSAT...</h1>
     </div>
 </div>
 
@@ -53,6 +84,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // Daftar Channel Sesuai Urutan (Tanpa Pengurangan)
     const channels = [
         { name: "Upin Ipin Live", id: "live_stream?channel=UCp0C_O9vV3-O3_Vn2p8mC9g" },
         { name: "Disney Kids", id: "P2v6i_L_S_0" },
@@ -69,24 +101,34 @@
     const frame = document.getElementById('main-player');
     const kill = document.getElementById('kill-screen');
     const dash = document.getElementById('dash');
+    const nameText = document.getElementById('ch-name');
 
-    // Mendengarkan perubahan dari Remote Center
+    // Mendengarkan Firebase
     onValue(ref(db, 'conecta_status'), (snapshot) => {
         const data = snapshot.val();
-        if(!data) return;
+        if (!data) return;
 
-        // Cek Sakelar YouTube (Kill Switch)
+        // Cek Status Koneksi (Kill Switch)
         if (data.connection === "OFF") {
             kill.style.display = "flex";
-            frame.src = "";
+            frame.src = ""; // Stop video agar tidak blank tapi benar-benar mati
         } else {
             kill.style.display = "none";
-            const ch = channels[data.current_ch];
-            frame.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&cc_load_policy=1&cc_lang_pref=id&hl=id`;
+            const chIdx = data.current_ch || 0;
+            const ch = channels[chIdx];
             
-            document.getElementById('ch-name').innerText = ch.name;
-            dash.classList.add('show');
-            setTimeout(() => dash.classList.remove('show'), 5000);
+            // Masukkan link YouTube dengan parameter Fullscreen & Auto-Subtitle
+            const newSrc = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&cc_load_policy=1&cc_lang_pref=id&hl=id&modestbranding=1&rel=0`;
+            
+            // Hanya reload jika ID berbeda (mencegah blank saat Firebase update data lain)
+            if (frame.src !== newSrc) {
+                frame.src = newSrc;
+                nameText.innerText = ch.name;
+                
+                // Animasi Info Channel
+                dash.classList.add('show');
+                setTimeout(() => dash.classList.remove('show'), 6000);
+            }
         }
     });
 </script>
