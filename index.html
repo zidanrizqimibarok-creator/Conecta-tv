@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA T.O V23 - AUTO ENGINE</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <title>CONECTA T.O V24 - ULTRA IPTV</title>
+    <link rel="stylesheet" href="https://cdn.fluidplayer.com/v3/current/fluidplayer.min.css" type="text/css"/>
+    <script src="https://cdn.fluidplayer.com/v3/current/fluidplayer.min.js"></script>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: 'Arial Black', sans-serif; }
-        
         #booting { position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
         .boot-text { font-size: 3rem; letter-spacing: 15px; animation: flash 1.5s infinite; }
         
         #tv-container { width: 100%; height: 100%; position: relative; }
-        video { width: 100%; height: 100%; background: #000; position: absolute; top: 0; left: 0; }
+        /* Memaksa video menutupi seluruh layar */
+        .fluid_video_wrapper { width: 100% !important; height: 100% !important; }
 
         #no-signal-box {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -32,7 +33,7 @@
         .tag { padding: 5px 12px; font-size: 0.8rem; border-radius: 4px; margin-right: 5px; font-weight: bold; }
         .uhf-code { color: #00f2ff; font-family: monospace; font-size: 1.1rem; margin-top: 10px; display: block; }
         
-        .mode-a { filter: grayscale(100%) contrast(1.1); }
+        .analog-mode { filter: grayscale(100%) contrast(1.1); }
         @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
     </style>
 </head>
@@ -42,7 +43,7 @@
 
 <div id="tv-container">
     <div id="no-signal-box"><div class="error-msg">! NO SIGNAL</div></div>
-    <video id="main-player" autoplay playsinline></video>
+    <video id="video-vlc"></video>
 </div>
 
 <div id="dash">
@@ -55,23 +56,38 @@
 </div>
 
 <script>
+    // Koleksi Lengkap dari Link IPTV Indonesia
     const channels = [
         { name: "SCTV", url: "https://video.liputan6.com/sctv/live/playlist.m3u8", type: "D", uhf: "30", tf: "546.00" },
-        { name: "TRANS TV", url: "https://idp.mivo.com/mivo/transtv/playlist.m3u8", type: "A", uhf: "40", tf: "626.25" },
+        { name: "INDOSIAR", url: "https://video.liputan6.com/indosiar/live/playlist.m3u8", type: "A", uhf: "24", tf: "498.25" },
+        { name: "TRANS TV", url: "https://idp.mivo.com/mivo/transtv/playlist.m3u8", type: "D", uhf: "40", tf: "626.00" },
+        { name: "TRANS 7", url: "https://idp.mivo.com/mivo/trans7/playlist.m3u8", type: "A", uhf: "42", tf: "642.25" },
         { name: "METRO TV", url: "https://live.metrotvnews.com/hls/metrotv.m3u8", type: "D", uhf: "32", tf: "562.00" },
         { name: "KOMPAS TV", url: "https://live.kompas.tv/hls/live.m3u8", type: "A", uhf: "25", tf: "506.25" },
-        { name: "TRANS 7", url: "https://idp.mivo.com/mivo/trans7/playlist.m3u8", type: "D", uhf: "42", tf: "642.00" }
+        { name: "ANTV", url: "https://idp.mivo.com/mivo/antv/playlist.m3u8", type: "D", uhf: "26", tf: "514.00" },
+        { name: "NET TV", url: "https://netmedia.akamaized.net/hls/live/2012480/net-tv/master.m3u8", type: "A", uhf: "34", tf: "578.25" }
     ];
 
     let current = 0;
     let signalTimer;
-    let engineReady = false;
-    const player = document.getElementById('main-player');
+    let videoInstance;
     const dash = document.getElementById('dash');
     const nosignal = document.getElementById('no-signal-box');
-    const hls = new Hls();
 
-    function tuneChannel(idx) {
+    function initPlayer() {
+        videoInstance = fluidPlayer('video-vlc', {
+            layoutControls: {
+                autoPlay: true,
+                mute: false,
+                allowTheater: false,
+                playPauseAnimation: false,
+                fillControlBar: true,
+                controlBar: { autoHide: true }
+            }
+        });
+    }
+
+    function tune(idx) {
         clearInterval(signalTimer);
         nosignal.style.display = "none";
         document.getElementById('booting').style.display = "none";
@@ -81,54 +97,54 @@
         document.getElementById('ch-uhf').innerText = `UHF: ${c.uhf} | TF: ${c.tf} KHZ`;
         
         const modeTag = document.getElementById('mode-text');
+        const vTag = document.getElementById('video-vlc');
+
         if(c.type === "A") {
             modeTag.innerText = "● ANALOG";
             modeTag.style.background = "#555";
-            player.className = "mode-a";
-            startSignalDrop();
+            vTag.classList.add("analog-mode");
+            startDrop();
         } else {
             modeTag.innerText = "● LIVE";
             modeTag.style.background = "#ff0000";
-            player.className = "";
+            vTag.classList.remove("analog-mode");
         }
 
-        if (Hls.isSupported()) {
-            hls.loadSource(c.url);
-            hls.attachMedia(player);
-            hls.on(Hls.Events.MANIFEST_PARSED, function() { player.play(); });
-        } else if (player.canPlayType('application/vnd.apple.mpegurl')) {
-            player.src = c.url;
-            player.play();
-        }
+        // Ganti Source Video
+        vTag.src = c.url;
+        videoInstance.play();
 
         dash.classList.add('show');
         setTimeout(() => dash.classList.remove('show'), 5000);
     }
 
-    function startSignalDrop() {
+    function startDrop() {
         signalTimer = setInterval(() => {
             nosignal.style.display = "flex";
-            player.muted = true;
+            const v = document.getElementById('video-vlc');
+            v.muted = true;
             setTimeout(() => { 
                 nosignal.style.display = "none"; 
-                player.muted = false;
+                v.muted = false;
             }, 1500);
         }, 10000);
     }
 
-    // --- WILAYAH SAKRAL PR/CH DENGAN AUTO FULLSCREEN ---
+    // Jalankan Player saat pertama kali dimuat
+    window.onload = initPlayer;
+
+    // --- WILAYAH SAKRAL PR/CH (V6) ---
     window.addEventListener('keydown', (e) => {
-        // Otomatis Fullscreen saat tombol PR/CH ditekan pertama kali
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen().catch(() => {});
         }
 
         if (e.key === "ArrowUp" || e.keyCode === 38 || e.keyCode === 427) {
             current = (current + 1) % channels.length;
-            tuneChannel(current);
+            tune(current);
         } else if (e.key === "ArrowDown" || e.keyCode === 40 || e.keyCode === 428) {
             current = (current - 1 + channels.length) % channels.length;
-            tuneChannel(current);
+            tune(current);
         }
     });
 </script>
