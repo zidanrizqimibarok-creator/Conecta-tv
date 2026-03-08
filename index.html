@@ -3,141 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA T.O V25 - 173 CH AUTO</title>
+    <title>ZEII IPTV - Digital OS</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: 'Arial Black', sans-serif; }
-        #booting { position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
-        .boot-text { font-size: 3rem; letter-spacing: 15px; animation: flash 1.5s infinite; }
-        #tv-container { width: 100%; height: 100%; position: relative; }
-        video { width: 100%; height: 100%; background: #000; position: absolute; top: 0; left: 0; }
-        #no-signal-box { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 900; display: none; align-items: center; justify-content: center; }
-        .error-msg { padding: 20px 50px; border: 4px solid #fff; font-size: 2.5rem; background: #000; }
-        #dash { position: absolute; bottom: 5%; left: 3%; right: 3%; background: rgba(0,0,0,0.9); border-left: 12px solid #ff0000; padding: 20px 40px; transform: translateY(200%); transition: 0.5s; z-index: 950; backdrop-filter: blur(8px); }
-        #dash.show { transform: translateY(0); }
-        .ch-name { font-size: 3rem; margin: 0; text-transform: uppercase; line-height: 1; }
-        .tag { padding: 5px 12px; font-size: 0.8rem; border-radius: 4px; margin-right: 5px; font-weight: bold; }
-        .uhf-code { color: #00f2ff; font-family: monospace; font-size: 1.1rem; margin-top: 10px; display: block; }
-        .mode-a { filter: grayscale(100%) contrast(1.1); }
-        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+        * { box-sizing: border-box; margin: 0; padding: 0; cursor: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        
+        /* Video Layer */
+        #video-wrapper { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Overlay Info Channel */
+        #info-box { 
+            position: absolute; bottom: 50px; left: 50px; 
+            background: rgba(0, 0, 0, 0.8); color: white; padding: 20px 40px;
+            border-left: 8px solid #00d1b2; border-radius: 4px;
+            opacity: 0; transition: opacity 0.5s; z-index: 10;
+        }
+        #info-box.show { opacity: 1; }
+        #ch-number { font-size: 50px; font-weight: bold; display: block; }
+        #ch-name { font-size: 24px; color: #ccc; }
+        #ch-type { font-size: 14px; background: #00d1b2; color: #000; padding: 2px 8px; border-radius: 3px; font-weight: bold; margin-top: 5px; display: inline-block; }
+
+        /* No Signal UI */
+        #no-signal { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJndXN3bm53amR4eG54eHh4eHh4eHh4eHh4eHh4eHh4eHh4JnB0PWEmZXA9djFfaW50ZXJuYWxfZ2lmX2J5X2lkJmN0PWc/3o7TKMGpxvfXGxGvS0/giphy.gif') center/cover;
+            display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 5;
+        }
+        #no-signal h1 { color: white; text-shadow: 2px 2px #000; font-size: 3rem; }
+
+        /* Sidebar Channel List */
+        #sidebar {
+            position: absolute; right: -300px; top: 0; width: 300px; height: 100%;
+            background: rgba(20, 20, 20, 0.95); color: white; transition: 0.3s; z-index: 20;
+            padding: 20px; overflow-y: auto; border-left: 1px solid #444;
+        }
+        #sidebar.open { right: 0; }
+        .ch-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; font-size: 14px; }
+        .ch-item:hover { background: #00d1b2; color: #000; }
+
+        /* Navigation Buttons (Desktop Helper) */
+        .nav-helper { position: absolute; top: 10px; left: 10px; color: rgba(255,255,255,0.3); font-size: 10px; z-index: 100; }
     </style>
 </head>
-<body>
+<body onclick="enableFullscreen()">
 
-<div id="booting"><div class="boot-text" id="status-load">LOADING PLAYLIST...</div></div>
+    <div class="nav-helper">Tekan [UP/DOWN] Ganti Channel | [L] Daftar Channel | [0-9] Angka Shortcut</div>
 
-<div id="tv-container">
-    <div id="no-signal-box"><div class="error-msg">! NO SIGNAL</div></div>
-    <video id="main-player" autoplay playsinline></video>
-</div>
+    <div id="video-wrapper">
+        <div id="no-signal"><h1>TIDAK ADA SINYAL</h1></div>
+        
+        <video id="main-video"></video>
 
-<div id="dash">
-    <div style="margin-bottom: 5px;">
-        <span class="tag" id="mode-text" style="background:#ff0000">● LIVE</span>
-        <span id="ch-num" class="tag" style="background:#0056b3">CH 000</span>
+        <div id="info-box">
+            <span id="ch-number">01</span>
+            <div id="ch-name">MEMUAT...</div>
+            <div id="ch-type">DIGITAL TV</div>
+        </div>
     </div>
-    <h1 class="ch-name" id="ch-title">MENCARI SINYAL...</h1>
-    <span class="uhf-code" id="ch-uhf">UHF: -- | TF: ---.-- MHz</span>
-</div>
 
-<script>
-    let channels = [];
-    let current = 0;
-    let signalTimer;
-    const player = document.getElementById('main-player');
-    const hls = new Hls();
-    const dash = document.getElementById('dash');
+    <div id="sidebar">
+        <h3 style="margin-bottom:15px; border-bottom:2px solid #00d1b2">DAFTAR SALURAN</h3>
+        <div id="list-content"></div>
+    </div>
 
-    // MESIN AUTO-PARSER (Membaca 173+ Channel dari GitHub)
-    async function loadPlaylist() {
-        const url = 'https://iptv-org.github.io/iptv/languages/ind.m3u';
-        try {
-            const response = await fetch(url);
-            const data = await response.text();
-            const lines = data.split('\n');
-            
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i].startsWith('#EXTINF:')) {
-                    const name = lines[i].split(',')[1].trim();
-                    const streamUrl = lines[i+1].trim();
-                    // Acak tipe Analog (A) atau Digital (D)
-                    const type = Math.random() > 0.5 ? "A" : "D";
-                    channels.push({ name: name, url: streamUrl, type: type });
+    <script>
+        const video = document.getElementById('main-video');
+        const infoBox = document.getElementById('info-box');
+        const noSignal = document.getElementById('no-signal');
+        const sidebar = document.getElementById('sidebar');
+        const listContent = document.getElementById('list-content');
+        
+        let channels = [];
+        let currentIndex = 0;
+        let infoTimeout;
+        const hls = new Hls();
+
+        // Ambil Data M3U
+        fetch('https://iptv-org.github.io/iptv/languages/ind.m3u')
+            .then(res => res.text())
+            .then(data => {
+                const lines = data.split('\n');
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].startsWith('#EXTINF')) {
+                        const name = lines[i].split(',')[1].trim();
+                        const url = lines[i + 1].trim();
+                        channels.push({ name, url });
+                        
+                        // Isi Sidebar
+                        const item = document.createElement('div');
+                        item.className = 'ch-item';
+                        item.innerText = `${channels.length}. ${name}`;
+                        item.onclick = () => { playChannel(channels.length - 1); toggleSidebar(); };
+                        listContent.appendChild(item);
+                    }
                 }
+                playChannel(0);
+            });
+
+        function playChannel(index) {
+            if (index < 0) index = channels.length - 1;
+            if (index >= channels.length) index = 0;
+            
+            currentIndex = index;
+            const ch = channels[index];
+            
+            // UI Update
+            noSignal.style.display = 'none';
+            document.getElementById('ch-number').innerText = (index + 1).toString().padStart(2, '0');
+            document.getElementById('ch-name').innerText = ch.name;
+            showInfo();
+
+            // Logic Play
+            if (Hls.isSupported()) {
+                hls.loadSource(ch.url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
             }
-            document.getElementById('status-load').innerText = "CONECTA T.O";
-            setTimeout(() => { document.getElementById('booting').style.display = "none"; }, 2000);
-            tune(0);
-        } catch (err) {
-            document.getElementById('status-load').innerText = "ERROR CONNECTION";
-        }
-    }
 
-    function tune(idx) {
-        if (channels.length === 0) return;
-        clearInterval(signalTimer);
-        document.getElementById('no-signal-box').style.display = "none";
-        
-        const c = channels[idx];
-        document.getElementById('ch-title').innerText = c.name;
-        document.getElementById('ch-num').innerText = `CH ${String(idx + 1).padStart(3, '0')}`;
-        
-        // UHF Otomatis (UHF 21-60)
-        const uhf = 21 + (idx % 40);
-        const tf = (474 + (idx * 8)).toFixed(2);
-        document.getElementById('ch-uhf').innerText = `UHF: ${uhf} | TF: ${tf} MHz`;
-
-        const modeTag = document.getElementById('mode-text');
-        if (c.type === "A") {
-            modeTag.innerText = "● ANALOG";
-            modeTag.style.background = "#555";
-            player.className = "mode-a";
-            startSignalDrop();
-        } else {
-            modeTag.innerText = "● LIVE";
-            modeTag.style.background = "#ff0000";
-            player.className = "";
+            // Error Handling (No Signal)
+            hls.on(Hls.Events.ERROR, () => { noSignal.style.display = 'flex'; });
+            video.onerror = () => { noSignal.style.display = 'flex'; };
         }
 
-        if (Hls.isSupported()) {
-            hls.loadSource(c.url);
-            hls.attachMedia(player);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => player.play());
-        } else if (player.canPlayType('application/vnd.apple.mpegurl')) {
-            player.src = c.url;
-            player.play();
+        function showInfo() {
+            infoBox.classList.add('show');
+            clearTimeout(infoTimeout);
+            infoTimeout = setTimeout(() => infoBox.classList.remove('show'), 4000);
         }
 
-        dash.classList.add('show');
-        setTimeout(() => dash.classList.remove('show'), 5000);
-    }
+        function toggleSidebar() { sidebar.classList.toggle('open'); }
 
-    function startSignalDrop() {
-        signalTimer = setInterval(() => {
-            document.getElementById('no-signal-box').style.display = "flex";
-            player.muted = true;
-            setTimeout(() => { 
-                document.getElementById('no-signal-box').style.display = "none"; 
-                player.muted = false;
-            }, 1500);
-        }, 10000);
-    }
-
-    // --- WILAYAH SAKRAL PR/CH ---
-    window.addEventListener('keydown', (e) => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(() => {});
+        function enableFullscreen() {
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
+            }
         }
-        if (e.key === "ArrowUp" || e.keyCode === 38 || e.keyCode === 427) {
-            current = (current + 1) % channels.length;
-            tune(current);
-        } else if (e.key === "ArrowDown" || e.keyCode === 40 || e.keyCode === 428) {
-            current = (current - 1 + channels.length) % channels.length;
-            tune(current);
-        }
-    });
 
-    window.onload = loadPlaylist;
-</script>
+        // Kontrol Keyboard (Remote Style)
+        let numBuffer = "";
+        window.addEventListener('keydown', (e) => {
+            if (e.key === "ArrowUp") playChannel(currentIndex - 1);
+            if (e.key === "ArrowDown") playChannel(currentIndex + 1);
+            if (e.key === "l" || e.key === "L") toggleSidebar();
+            
+            // Shortcut Nomor
+            if (/[0-9]/.test(e.key)) {
+                numBuffer += e.key;
+                clearTimeout(window.numTimer);
+                window.numTimer = setTimeout(() => {
+                    const target = parseInt(numBuffer) - 1;
+                    if (channels[target]) playChannel(target);
+                    numBuffer = "";
+                }, 1000);
+            }
+        });
+    </script>
 </body>
 </html>
