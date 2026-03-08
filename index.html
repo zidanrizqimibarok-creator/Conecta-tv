@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA T.O V19 - UHF ENGINE</title>
+    <title>CONECTA T.O V20 - IPTV</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; color: #fff; font-family: 'Arial Black', sans-serif; }
         #booting { position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
         .boot-text { font-size: 3rem; letter-spacing: 15px; animation: flash 1.5s infinite; }
         
-        #yt-wrapper { width: 100%; height: 100%; position: relative; }
-        iframe { width: 100%; height: 100%; border: none; }
+        #video-container { width: 100%; height: 100%; position: relative; background: #000; }
+        video { width: 100%; height: 100%; object-fit: cover; }
 
         /* NO SIGNAL OVERLAY */
         #no-signal-box {
@@ -21,10 +22,8 @@
         .error-msg {
             padding: 20px 50px; border: 4px solid #fff;
             font-size: 2.5rem; background: #000; color: #fff;
-            box-shadow: 0 0 20px rgba(255,255,255,0.5);
         }
 
-        /* DASHBOARD DENGAN KODE UHF/TF */
         #dash {
             position: absolute; bottom: 5%; left: 3%; right: 3%;
             background: rgba(0,0,0,0.9); border-left: 12px solid #ff0000;
@@ -34,115 +33,108 @@
         #dash.show { transform: translateY(0); }
         .ch-name { font-size: 3.5rem; margin: 0; text-transform: uppercase; line-height: 1.1; }
         .tag { padding: 5px 12px; font-size: 0.8rem; border-radius: 4px; margin-right: 5px; font-weight: bold; }
-        .t-live { background: #ff0000; }
-        .uhf-code { color: #00f2ff; font-family: monospace; font-size: 1.1rem; margin-top: 10px; display: block; letter-spacing: 2px; }
+        .uhf-code { color: #00f2ff; font-family: monospace; font-size: 1.1rem; margin-top: 10px; display: block; }
         
         .analog-bw { filter: grayscale(100%) contrast(1.1); }
         @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
     </style>
 </head>
-<body>
+<body onclick="startTV()">
 
 <div id="booting"><div class="boot-text">CONECTA T.O</div></div>
 
-<div id="yt-wrapper">
+<div id="video-container">
     <div id="no-signal-box"><div class="error-msg">! NO SIGNAL</div></div>
-    <div id="player-container"></div>
+    <video id="main-video" autoplay playsinline></video>
 </div>
 
 <div id="dash">
     <div style="margin-bottom: 5px;">
-        <span class="tag t-live" id="mode-text">● LIVE</span>
-        <span id="ch-loc" class="tag" style="background:#0056b3">INDONESIA</span>
+        <span class="tag" id="mode-tag" style="background:#ff0000">● LIVE</span>
+        <span class="tag" style="background:#0056b3">IPTV STREAM</span>
     </div>
     <h1 class="ch-name" id="ch-title">LOADING...</h1>
-    <span class="uhf-code" id="ch-uhf">UHF: 00 | TF: 000.00 KHZ</span>
+    <span class="uhf-code" id="ch-uhf">UHF: -- | TF: ---.-- KHZ</span>
 </div>
 
 <script>
-    // Load YouTube IFrame API
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    const video = document.getElementById('main-video');
+    const nosignal = document.getElementById('no-signal-box');
+    const dash = document.getElementById('dash');
+    const hls = new Hls();
 
+    // DAFTAR CHANNEL CAMPURAN (DARI M3U INDO)
     const channels = [
-        { name: "Metro TV", id: "AUE5iHINUIw", type: "D", loc: "INDONESIA", uhf: "32", tf: "562.00" },
-        { name: "iNews", id: "Kz3FK5FbBz8", type: "A", loc: "INDONESIA", uhf: "44", tf: "658.25" },
-        { name: "Boomerang", id: "6a23sxk5_vM", type: "D", loc: "USA", uhf: "21", tf: "474.00" },
-        { name: "Cartoon TV", id: "U8ZzsbxbYcE", type: "A", loc: "USA", uhf: "37", tf: "602.25" },
-        { name: "Tom TV", id: "oV5gVoZQ7xU", type: "A", loc: "INDONESIA", uhf: "29", tf: "538.25" }
+        { name: "TVRI Nasional", url: "https://vcl.tvri.go.id/hls/nasional.m3u8", type: "D", uhf: "32", tf: "562.00" },
+        { name: "Indosiar", url: "https://edge.vcloud.id/indosiar/live.m3u8", type: "A", uhf: "44", tf: "658.25" },
+        { name: "Metro TV", url: "https://live.metrotvnews.com/metrotv/index.m3u8", type: "D", uhf: "32", tf: "562.00" },
+        { name: "SCTV", url: "https://edge.vcloud.id/sctv/live.m3u8", type: "A", uhf: "37", tf: "602.25" },
+        { name: "Trans TV", url: "https://edge.vcloud.id/transtv/live.m3u8", type: "D", uhf: "21", tf: "474.00" },
+        { name: "Tom TV (Cartoon)", url: "https://XfZetbS9084.m3u8", type: "A", uhf: "29", tf: "538.25" } // Contoh analog
     ];
 
     let current = 0;
-    let ytPlayer;
     let signalInterval;
-    const dash = document.getElementById('dash');
-    const nosignal = document.getElementById('no-signal-box');
+    let isStarted = false;
 
-    function onYouTubeIframeAPIReady() {
-        ytPlayer = new YT.Player('player-container', {
-            height: '100%',
-            width: '100%',
-            videoId: channels[current].id,
-            playerVars: { 'autoplay': 1, 'controls': 0, 'cc_load_policy': 0, 'iv_load_policy': 3, 'rel': 0 },
-            events: { 'onReady': onPlayerReady }
-        });
+    function startTV() {
+        if(isStarted) return;
+        isStarted = true;
+        document.getElementById('booting').style.display = "none";
+        if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+        playChannel(current);
     }
 
-    function onPlayerReady(event) {
-        setTimeout(() => {
-            document.getElementById('booting').style.display = "none";
-            play(current);
-        }, 3000);
-    }
-
-    function play(idx) {
+    function playChannel(idx) {
         clearInterval(signalInterval);
         nosignal.style.display = "none";
-        if(ytPlayer && ytPlayer.unMute) ytPlayer.unMute();
+        video.muted = false;
 
         const c = channels[idx];
         document.getElementById('ch-title').innerText = c.name;
-        document.getElementById('ch-loc').innerText = c.loc;
         document.getElementById('ch-uhf').innerText = `UHF: ${c.uhf} | TF: ${c.tf} KHZ`;
 
-        const frameEl = ytPlayer.getIframe();
-        frameEl.className = "";
-        
+        // Setting Tipe A atau D
         if(c.type === "A") {
-            frameEl.classList.add("analog-bw");
-            document.getElementById('mode-text').innerText = "● ANALOG";
-            document.getElementById('mode-text').style.background = "#555";
+            video.className = "analog-bw";
+            document.getElementById('mode-tag').innerText = "● ANALOG";
+            document.getElementById('mode-tag').style.background = "#555";
             
             signalInterval = setInterval(() => {
                 nosignal.style.display = "flex";
-                ytPlayer.mute(); // SUARA ILANG PAS NO SIGNAL
+                video.muted = true; // Mute pas no signal
                 setTimeout(() => { 
                     nosignal.style.display = "none"; 
-                    ytPlayer.unMute(); // SUARA BALIK LAGI
+                    video.muted = false;
                 }, 1500);
             }, 10000);
         } else {
-            document.getElementById('mode-text').innerText = "● LIVE";
-            document.getElementById('mode-text').style.background = "#ff0000";
+            video.className = "";
+            document.getElementById('mode-tag').innerText = "● DIGITAL";
+            document.getElementById('mode-tag').style.background = "#ff0000";
         }
-        
-        ytPlayer.loadVideoById(c.id);
+
+        // Mesin Pemutar M3U8 (VLC Style)
+        if (Hls.isSupported()) {
+            hls.loadSource(c.url);
+            hls.attachMedia(video);
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = c.url;
+        }
+
         dash.classList.add('show');
         setTimeout(() => dash.classList.remove('show'), 5000);
     }
 
-    // --- TEMPAT SAKRAL PR/CH (TIDAK BERUBAH) ---
+    // --- TEMPAT SAKRAL PR/CH (TIDAK DIUBAH) ---
     window.addEventListener('keydown', (e) => {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
-
-        if (e.key === "ArrowUp" || e.key === "ChannelUp" || e.keyCode === 427) {
+        if (!isStarted) return;
+        if (e.key === "ArrowUp" || e.keyCode === 38 || e.keyCode === 427) {
             current = (current + 1) % channels.length;
-            play(current);
-        } else if (e.key === "ArrowDown" || e.key === "ChannelDown" || e.keyCode === 428) {
+            playChannel(current);
+        } else if (e.key === "ArrowDown" || e.keyCode === 40 || e.keyCode === 428) {
             current = (current - 1 + channels.length) % channels.length;
-            play(current);
+            playChannel(current);
         }
     });
 </script>
