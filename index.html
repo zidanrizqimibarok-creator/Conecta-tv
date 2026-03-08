@@ -2,119 +2,143 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA TV - Remote Version</title>
-    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CONECTA TV - Official Stream</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; cursor: none; color: #fff; }
-        #player-container { width: 100vw; height: 100vh; position: relative; }
         
-        /* Video Player & Youtube Frame */
-        .main-player, #yt-frame { width: 100%; height: 100%; position: absolute; top: 0; left: 0; border: none; display: none; }
+        #tv-screen { width: 100vw; height: 100vh; position: relative; }
+
+        /* Mesin Frame untuk Web Resmi */
+        .tv-frame {
+            width: 100%; height: 100%; border: none;
+            position: absolute; top: 0; left: 0;
+            display: none;
+        }
         .active { display: block !important; }
 
         /* Animasi Tanda Seru (!) Koneksi Terputus */
-        #error-overlay {
+        #error-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 100; display: none;
             flex-direction: column; align-items: center; justify-content: center;
         }
-        .warning-bang {
-            font-size: 10rem; color: #ff0000; font-weight: 900;
-            animation: pulse-bang 0.8s infinite alternate;
-            text-shadow: 0 0 50px rgba(255,0,0,0.6);
+        .bang-icon {
+            font-size: 12rem; color: #ff0000; font-weight: 900;
+            animation: bang-bounce 0.6s infinite alternate;
+            text-shadow: 0 0 40px rgba(255,0,0,0.7);
         }
-        #error-overlay h1 { font-size: 1.5rem; color: #ff0000; margin-top: 10px; letter-spacing: 3px; }
+        #error-screen h1 { font-size: 1.5rem; color: #ff0000; margin-top: 10px; letter-spacing: 5px; }
 
-        @keyframes pulse-bang { from { transform: scale(1); } to { transform: scale(1.2); } }
+        @keyframes bang-bounce { from { transform: scale(1); } to { transform: scale(1.3); } }
 
-        /* Watermark & Info */
-        #info-bar {
+        /* Overlay Info Channel */
+        #channel-bar {
             position: absolute; bottom: 8%; left: 5%;
-            background: rgba(0,0,0,0.85); padding: 15px 40px; border-left: 8px solid #ff0000;
-            opacity: 0; transition: 0.3s; z-index: 110;
+            background: rgba(0,0,0,0.9); padding: 15px 45px; border-left: 8px solid #ff0000;
+            opacity: 0; transition: 0.4s ease; z-index: 110; pointer-events: none;
         }
-        #info-bar.show { opacity: 1; }
-        .conecta-level { position: absolute; bottom: 15%; left: 25px; color: rgba(255,255,255,0.15); font-weight: bold; z-index: 50; letter-spacing: 5px; }
+        #channel-bar.show { opacity: 1; }
+        #channel-bar h2 { margin: 0; font-size: 3.5rem; text-transform: uppercase; font-weight: 900; }
+        
+        /* Watermark Conecta */
+        .conecta-text {
+            position: absolute; bottom: 15%; left: 25px; 
+            color: rgba(255,255,255,0.12); font-weight: bold; 
+            font-size: 1.2rem; letter-spacing: 6px; z-index: 50;
+        }
     </style>
 </head>
 <body>
 
-<div id="player-container">
-    <div class="conecta-level">CONECTA</div>
+<div id="tv-screen">
+    <div class="conecta-text">CONECTA</div>
 
-    <div id="error-overlay">
-        <div class="warning-bang">!</div>
+    <div id="error-screen">
+        <div class="bang-icon">!</div>
         <h1>Koneksi Terputus!</h1>
     </div>
 
-    <iframe id="yt-frame" allow="autoplay; fullscreen"></iframe>
+    <iframe id="main-frame" class="tv-frame active" allow="autoplay; fullscreen"></iframe>
 
-    <video id="vjs-player" class="video-js vjs-big-play-centered main-player" preload="auto"></video>
-
-    <div id="info-bar">
-        <p id="ch-num" style="margin:0; color:#ff0000; font-weight:bold;">CH 01</p>
-        <h2 id="ch-name" style="margin:0; font-size:3rem; text-transform:uppercase;">LOADING...</h2>
+    <div id="channel-bar">
+        <p id="ch-idx" style="margin:0; color:#ff0000; font-weight:bold; font-size:1.2rem;">CHANNEL 01</p>
+        <h2 id="ch-title">LOADING...</h2>
     </div>
 </div>
 
-<script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
 <script>
-    const playlist = [
-        { name: "iNews TV (LIVE)", type: "youtube", id: "7cjVj1ZyzyE" }, // ID Video YouTube iNews
-        { name: "RCTI", type: "m3u8", url: "https://p.rctiplus.id/hls/rcti/v1/master.m3u8" },
-        { name: "MNCTV", type: "m3u8", url: "https://p.rctiplus.id/hls/mnctv/v1/master.m3u8" },
-        { name: "GTV", type: "m3u8", url: "https://p.rctiplus.id/hls/gtv/v1/master.m3u8" }
+    const channels = [
+        { name: "iNews TV", url: "https://www.youtube.com/embed/Kz3FK5FbBz8?autoplay=1&controls=0&rel=0" },
+        { name: "RCTI", url: "https://m.rctiplus.com/tv/rcti" },
+        { name: "GTV", url: "https://m.rctiplus.com/tv/gtv" },
+        { name: "MNCTV", url: "https://m.rctiplus.com/tv/mnctv" }
     ];
 
     let currentIdx = 0;
-    const vjs = videojs('vjs-player', { autoplay: true, controls: false });
-    const yt = document.getElementById('yt-frame');
-    const vjsEl = document.getElementById('vjs-player');
-    const errorSc = document.getElementById('error-overlay');
-    const infoBar = document.getElementById('info-bar');
+    const frame = document.getElementById('main-frame');
+    const infoBar = document.getElementById('channel-bar');
+    const errorSc = document.getElementById('error-screen');
 
-    function playChannel(idx) {
-        const ch = playlist[idx];
+    function changeCH(idx) {
+        // Cek Koneksi Internet
+        if (!navigator.onLine) {
+            errorSc.style.display = "flex";
+            return;
+        }
         errorSc.style.display = "none";
         
-        // Update Info
-        document.getElementById('ch-num').innerText = `CH ${(idx + 1).toString().padStart(2, '0')}`;
-        document.getElementById('ch-name').innerText = ch.name;
+        const ch = channels[idx];
+        
+        // Update Tampilan Info
+        document.getElementById('ch-idx').innerText = `CHANNEL ${(idx + 1).toString().padStart(2, '0')}`;
+        document.getElementById('ch-title').innerText = ch.name;
+        
         infoBar.classList.add('show');
-        setTimeout(() => infoBar.classList.remove('show'), 4000);
+        setTimeout(() => infoBar.classList.remove('show'), 5000);
 
-        if (ch.type === "youtube") {
-            vjsEl.style.display = "none";
-            yt.style.display = "block";
-            yt.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&showinfo=0&rel=0`;
-            vjs.pause();
-        } else {
-            yt.style.display = "none";
-            yt.src = "";
-            vjsEl.style.display = "block";
-            vjs.src({ type: 'application/x-mpegURL', src: ch.url });
-            vjs.play().catch(() => { errorSc.style.display = "flex"; });
+        // Ganti Link Iframe
+        frame.src = ch.url;
+    }
+
+    // Fungsi Auto Landscape & Fullscreen
+    function goFullscreen() {
+        const doc = document.documentElement;
+        if (doc.requestFullscreen) doc.requestFullscreen();
+        
+        // Coba kunci ke landscape (untuk HP/Tablet)
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(() => {});
         }
     }
 
-    // Navigasi Remote
+    // Navigasi Remote PR/CH (Atas/Bawah)
     window.addEventListener('keydown', (e) => {
-        // Fullscreen Otomatis
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        goFullscreen(); // Langsung landscape saat tombol ditekan
 
-        // Cek tombol PR/CH atau Panah
-        if (e.key === "ChannelUp" || e.key === "ArrowUp" || e.keyCode === 427) {
-            currentIdx = (currentIdx + 1) % playlist.length;
-            playChannel(currentIdx);
-        } else if (e.key === "ChannelDown" || e.key === "ArrowDown" || e.keyCode === 428) {
-            currentIdx = (currentIdx - 1 + playlist.length) % playlist.length;
-            playChannel(currentIdx);
+        // Tombol Atas / Channel Up
+        if (e.key === "ArrowUp" || e.key === "ChannelUp" || e.keyCode === 427) {
+            currentIdx = (currentIdx + 1) % channels.length;
+            changeCH(currentIdx);
+        } 
+        // Tombol Bawah / Channel Down
+        else if (e.key === "ArrowDown" || e.key === "ChannelDown" || e.keyCode === 428) {
+            currentIdx = (currentIdx - 1 + channels.length) % channels.length;
+            changeCH(currentIdx);
         }
     });
 
-    vjs.on('error', () => { errorSc.style.display = "flex"; });
-    playChannel(currentIdx);
+    // Deteksi Jika Internet Mati Tiba-tiba
+    window.addEventListener('offline', () => {
+        errorSc.style.display = "flex";
+    });
+
+    window.addEventListener('online', () => {
+        changeCH(currentIdx);
+    });
+
+    // Jalankan Channel Pertama
+    changeCH(currentIdx);
 </script>
 </body>
 </html>
