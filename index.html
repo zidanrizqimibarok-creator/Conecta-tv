@@ -2,73 +2,64 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>CONECTA TV V14.4</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONECTA TV V15</title>
     <style>
-        body, html { 
-            margin: 0; padding: 0; width: 100%; height: 100%; 
-            background: #000; overflow: hidden; color: #fff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: sans-serif; }
+        
+        /* Tombol Start agar Fullscreen & Remote Jalan */
+        #btn-start {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #111; z-index: 9999; display: flex; align-items: center; justify-content: center;
         }
-        
-        /* Layar Utama */
-        #tv-screen { width: 100vw; height: 100vh; position: relative; display: block; }
-        
-        /* Watermark */
-        #watermark {
-            position: absolute; top: 30px; right: 40px;
-            font-size: 1.2rem; font-weight: 900; color: rgba(255,255,255,0.4);
-            z-index: 100; letter-spacing: 5px; pointer-events: none;
+        #btn-start button {
+            padding: 20px 40px; font-size: 1.5rem; font-weight: bold; cursor: pointer;
+            background: #f00; color: #fff; border: none; border-radius: 10px;
         }
 
+        #tv-screen { width: 100vw; height: 100vh; position: relative; }
+        
         /* Video Player */
-        iframe { 
-            width: 100%; height: 100%; border: none; 
-            position: absolute; z-index: 10; pointer-events: none;
-        }
+        iframe { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
 
-        /* Noise (Semut TV) */
+        /* Noise Semut */
         #noise { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             background: url('https://upload.wikimedia.org/wikipedia/commons/5/5a/Static_noise.gif'); 
-            z-index: 20; opacity: 0; pointer-events: none;
+            z-index: 2; opacity: 0; pointer-events: none;
         }
 
-        /* Kotak Nama (Desain Baru) */
+        /* Kotak Nama */
         #info-bar { 
-            position: absolute; bottom: 10%; left: 5%; 
-            background: linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
-            padding: 20px 80px 20px 30px; 
-            opacity: 0; transition: 0.4s ease-out; 
-            z-index: 100; transform: translateY(20px);
+            position: absolute; bottom: 50px; left: 50px; 
+            padding: 20px 40px; z-index: 100; opacity: 0; transition: 0.5s;
+            background: rgba(0,0,0,0.8);
         }
-        #info-bar.show { opacity: 1; transform: translateY(0); }
-        
-        .digital-accent { border-left: 10px solid #00f2ff; } /* Cyan */
-        .analog-accent { border-left: 10px solid #ffcc00; }  /* Gold */
-
-        .golongan { font-size: 0.8rem; font-weight: bold; letter-spacing: 3px; margin-bottom: 5px; }
-        #ch-name { margin: 0; font-size: 3.5rem; font-weight: 900; text-transform: uppercase; }
-
-        .analog-bw { filter: grayscale(100%) contrast(110%); }
+        #info-bar.show { opacity: 1; }
+        .digital-accent { border-left: 10px solid #00f2ff; }
+        .analog-accent { border-left: 10px solid #ffaa00; }
+        #ch-name { margin: 0; font-size: 3rem; text-transform: uppercase; }
+        .analog-bw { filter: grayscale(100%); }
     </style>
 </head>
-<body onclick="startTV()">
+<body>
 
-<div id="watermark">CONECTA TV</div>
+<div id="btn-start">
+    <button onclick="nyalakanTV()">MASUK MODE TV / NYALAKAN</button>
+</div>
 
 <div id="tv-screen">
     <div id="noise"></div>
-    <iframe id="player" allow="autoplay; fullscreen"></iframe>
-
+    <iframe id="main-player" allow="autoplay; fullscreen"></iframe>
     <div id="info-bar">
-        <div id="ch-gol" class="golongan">DIGITAL</div>
+        <div id="ch-gol" style="font-size: 0.8rem; letter-spacing: 2px;">DIGITAL</div>
         <h1 id="ch-name">LOADING...</h1>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const config = {
         apiKey: "AIzaSyBoS3INezO0UQptcXYNZFbnPbmmf_hU8xc",
@@ -78,12 +69,13 @@
         appId: "1:384795261277:web:6a2b05dbea819b4f4590b4"
     };
 
-    const db = getDatabase(initializeApp(config));
-    const player = document.getElementById('player');
+    const app = initializeApp(config);
+    const db = getDatabase(app);
+    const player = document.getElementById('main-player');
     const info = document.getElementById('info-bar');
     const noise = document.getElementById('noise');
 
-    const channels = [
+    const channelList = [
         { name: "Metro TV", id: "AUE5iHINUIw", type: "digital" },
         { name: "iNews", id: "Kz3FK5FbBz8", type: "analog" },
         { name: "Boomerang", id: "6a23sxk5_vM", type: "digital" },
@@ -92,64 +84,67 @@
     ];
 
     let currentIdx = 0;
-    let isStarted = false;
-    let aInt, nInt;
+    let tvAktif = false;
+    let intA, intN;
 
-    // WAJIB KLIK LAYAR UNTUK MULAI
-    window.startTV = () => {
-        if(isStarted) return;
-        isStarted = true;
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
-        initSync();
+    window.nyalakanTV = () => {
+        tvAktif = true;
+        document.getElementById('btn-start').style.display = 'none';
+        
+        // Minta Fullscreen Paksa
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        
+        syncData();
     };
 
-    function initSync() {
+    function syncData() {
         onValue(ref(db, 'conecta_tv/current_idx'), (snap) => {
+            if(!tvAktif) return;
             currentIdx = snap.val() || 0;
-            renderCH();
+            updateLayar();
         });
     }
 
-    function renderCH() {
-        const ch = channels[currentIdx];
+    function updateLayar() {
+        const ch = channelList[currentIdx];
         if(!ch) return;
 
-        // Force reload link agar tidak blank
-        player.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&mute=0&rel=0&enablejsapi=1&origin=${window.location.origin}`;
+        player.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&mute=0&rel=0&enablejsapi=1`;
         
         document.getElementById('ch-name').innerText = ch.name;
         document.getElementById('ch-gol').innerText = ch.type.toUpperCase() + " TV";
         
-        // Kotak Info Logic
         info.className = (ch.type === "digital") ? "digital-accent show" : "analog-accent show";
-        setTimeout(() => info.classList.remove('show'), 5000);
+        setTimeout(() => info.classList.remove('show'), 4000);
 
-        // Reset Effects
-        clearInterval(aInt); clearInterval(nInt);
+        // Reset Efek Analog
+        clearInterval(intA); clearInterval(intN);
         player.classList.remove('analog-bw'); noise.style.opacity = 0;
         
         if (ch.type === "analog") {
-            aInt = setInterval(() => {
+            intA = setInterval(() => {
                 player.classList.add('analog-bw');
                 setTimeout(() => player.classList.remove('analog-bw'), 5000);
             }, 60000);
-            nInt = setInterval(() => {
+            intN = setInterval(() => {
                 noise.style.opacity = 0.15;
-                setTimeout(() => noise.style.opacity = 0, 400);
+                setTimeout(() => noise.style.opacity = 0, 500);
             }, 5000);
         }
     }
 
-    // Remote Logic
-    window.addEventListener('keydown', async (e) => {
-        if(!isStarted) return;
-        let nextIdx;
+    // Fungsi Remote Keyboard
+    window.addEventListener('keydown', (e) => {
+        if(!tvAktif) return;
+        let next;
         if (e.key === "ArrowUp") {
-            nextIdx = (currentIdx + 1) % channels.length;
-            update(ref(db, 'conecta_tv'), { current_idx: nextIdx });
+            next = (currentIdx + 1) % channelList.length;
+            update(ref(db, 'conecta_tv'), { current_idx: next });
         } else if (e.key === "ArrowDown") {
-            nextIdx = (currentIdx - 1 + channels.length) % channels.length;
-            update(ref(db, 'conecta_tv'), { current_idx: nextIdx });
+            next = (currentIdx - 1 + channelList.length) % channelList.length;
+            update(ref(db, 'conecta_tv'), { current_idx: next });
         }
     });
 </script>
