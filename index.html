@@ -3,101 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA TV</title>
+    <title>CONECTA TV - Remote Version</title>
     <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; cursor: none; color: #fff; }
-        #video-container { width: 100vw; height: 100vh; position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
-        .video-js { width: 100% !important; height: 100% !important; z-index: 1; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; cursor: none; color: #fff; }
+        #player-container { width: 100vw; height: 100vh; position: relative; }
+        
+        /* Video Player & Youtube Frame */
+        .main-player, #yt-frame { width: 100%; height: 100%; position: absolute; top: 0; left: 0; border: none; display: none; }
+        .active { display: block !important; }
 
-        /* --- Animasi Tanda Seru Bergerak --- */
-        #no-signal-overlay {
+        /* Animasi Tanda Seru (!) Koneksi Terputus */
+        #error-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; display: none; z-index: 10;
+            background: #000; z-index: 100; display: none;
             flex-direction: column; align-items: center; justify-content: center;
         }
-        .warning-icon {
-            font-size: 8rem; color: #ff0000; font-weight: 900;
-            animation: bounce-alert 1s infinite alternate; /* Animasi Gerak Membal */
-            text-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
+        .warning-bang {
+            font-size: 10rem; color: #ff0000; font-weight: 900;
+            animation: pulse-bang 0.8s infinite alternate;
+            text-shadow: 0 0 50px rgba(255,0,0,0.6);
         }
-        #no-signal-overlay h1 { font-size: 1.5rem; margin-top: 20px; letter-spacing: 2px; color: #ff0000; }
+        #error-overlay h1 { font-size: 1.5rem; color: #ff0000; margin-top: 10px; letter-spacing: 3px; }
 
-        @keyframes bounce-alert {
-            from { transform: scale(1); opacity: 0.7; }
-            to { transform: scale(1.2); opacity: 1; }
-        }
+        @keyframes pulse-bang { from { transform: scale(1); } to { transform: scale(1.2); } }
 
-        /* --- Info & Watermark --- */
-        #info-overlay {
+        /* Watermark & Info */
+        #info-bar {
             position: absolute; bottom: 8%; left: 5%;
-            background: rgba(0,0,0,0.8); padding: 20px 40px; border-left: 6px solid #ff0000;
-            opacity: 0; transition: 0.4s; z-index: 20;
+            background: rgba(0,0,0,0.85); padding: 15px 40px; border-left: 8px solid #ff0000;
+            opacity: 0; transition: 0.3s; z-index: 110;
         }
-        #info-overlay.show { opacity: 1; }
-        .brand-watermark { position: absolute; bottom: 15%; left: 25px; color: rgba(255,255,255,0.1); font-weight: bold; z-index: 5; letter-spacing: 3px; }
+        #info-bar.show { opacity: 1; }
+        .conecta-level { position: absolute; bottom: 15%; left: 25px; color: rgba(255,255,255,0.15); font-weight: bold; z-index: 50; letter-spacing: 5px; }
     </style>
 </head>
 <body>
 
-<div id="video-container">
-    <div class="brand-watermark">CONECTA</div>
-    
-    <div id="no-signal-overlay">
-        <div class="warning-icon">!</div>
+<div id="player-container">
+    <div class="conecta-level">CONECTA</div>
+
+    <div id="error-overlay">
+        <div class="warning-bang">!</div>
         <h1>Koneksi Terputus!</h1>
     </div>
 
-    <video id="tv-player" class="video-js vjs-big-play-centered" preload="auto"></video>
+    <iframe id="yt-frame" allow="autoplay; fullscreen"></iframe>
 
-    <div id="info-overlay">
-        <p id="ui-ch-num" style="margin:0; color:#ff0000; font-weight:bold;">CH 01</p>
-        <h2 id="ui-ch-name" style="margin:0; font-size:3rem;">LOADING...</h2>
+    <video id="vjs-player" class="video-js vjs-big-play-centered main-player" preload="auto"></video>
+
+    <div id="info-bar">
+        <p id="ch-num" style="margin:0; color:#ff0000; font-weight:bold;">CH 01</p>
+        <h2 id="ch-name" style="margin:0; font-size:3rem; text-transform:uppercase;">LOADING...</h2>
     </div>
 </div>
 
 <script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
 <script>
-    // GUNAKAN LINK PUBLIC AGAR BISA TAMPIL (Contoh Link IPTV Github)
-    const channels = [
-        { name: "RCTI", url: "https://raw.githubusercontent.com/username/repo/main/rcti.m3u8" }, // Ganti dengan link m3u8 hasil grabber/public
-        { name: "MNCTV", url: "https://raw.githubusercontent.com/username/repo/main/mnctv.m3u8" },
-        { name: "GTV", url: "https://raw.githubusercontent.com/username/repo/main/gtv.m3u8" },
-        { name: "RTV", url: "https://raw.githubusercontent.com/username/repo/main/rtv.m3u8" }
+    const playlist = [
+        { name: "iNews TV (LIVE)", type: "youtube", id: "7cjVj1ZyzyE" }, // ID Video YouTube iNews
+        { name: "RCTI", type: "m3u8", url: "https://p.rctiplus.id/hls/rcti/v1/master.m3u8" },
+        { name: "MNCTV", type: "m3u8", url: "https://p.rctiplus.id/hls/mnctv/v1/master.m3u8" },
+        { name: "GTV", type: "m3u8", url: "https://p.rctiplus.id/hls/gtv/v1/master.m3u8" }
     ];
 
     let currentIdx = 0;
-    const player = videojs('tv-player', { autoplay: true, controls: false });
-    const signal = document.getElementById('no-signal-overlay');
+    const vjs = videojs('vjs-player', { autoplay: true, controls: false });
+    const yt = document.getElementById('yt-frame');
+    const vjsEl = document.getElementById('vjs-player');
+    const errorSc = document.getElementById('error-overlay');
+    const infoBar = document.getElementById('info-bar');
 
-    function playCH(idx) {
-        signal.style.display = "none";
-        const ch = channels[idx];
-        document.getElementById('ui-ch-name').innerText = ch.name;
-        document.getElementById('ui-ch-num').innerText = `CH ${(idx + 1).toString().padStart(2, '0')}`;
+    function playChannel(idx) {
+        const ch = playlist[idx];
+        errorSc.style.display = "none";
         
-        document.getElementById('info-overlay').classList.add('show');
-        setTimeout(() => document.getElementById('info-overlay').classList.remove('show'), 4000);
+        // Update Info
+        document.getElementById('ch-num').innerText = `CH ${(idx + 1).toString().padStart(2, '0')}`;
+        document.getElementById('ch-name').innerText = ch.name;
+        infoBar.classList.add('show');
+        setTimeout(() => infoBar.classList.remove('show'), 4000);
 
-        player.src({ type: 'application/x-mpegURL', src: ch.url });
-        player.play().catch(() => signal.style.display = "flex");
+        if (ch.type === "youtube") {
+            vjsEl.style.display = "none";
+            yt.style.display = "block";
+            yt.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&showinfo=0&rel=0`;
+            vjs.pause();
+        } else {
+            yt.style.display = "none";
+            yt.src = "";
+            vjsEl.style.display = "block";
+            vjs.src({ type: 'application/x-mpegURL', src: ch.url });
+            vjs.play().catch(() => { errorSc.style.display = "flex"; });
+        }
     }
 
-    // Navigasi Remote PR/CH
+    // Navigasi Remote
     window.addEventListener('keydown', (e) => {
+        // Fullscreen Otomatis
         if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-        
-        if (e.key === "ChannelUp" || e.key === "ArrowUp") {
-            currentIdx = (currentIdx + 1) % channels.length;
-            playCH(currentIdx);
-        } else if (e.key === "ChannelDown" || e.key === "ArrowDown") {
-            currentIdx = (currentIdx - 1 + channels.length) % channels.length;
-            playCH(currentIdx);
+
+        // Cek tombol PR/CH atau Panah
+        if (e.key === "ChannelUp" || e.key === "ArrowUp" || e.keyCode === 427) {
+            currentIdx = (currentIdx + 1) % playlist.length;
+            playChannel(currentIdx);
+        } else if (e.key === "ChannelDown" || e.key === "ArrowDown" || e.keyCode === 428) {
+            currentIdx = (currentIdx - 1 + playlist.length) % playlist.length;
+            playChannel(currentIdx);
         }
     });
 
-    player.on('error', () => signal.style.display = "flex");
-    playCH(currentIdx);
+    vjs.on('error', () => { errorSc.style.display = "flex"; });
+    playChannel(currentIdx);
 </script>
 </body>
 </html>
