@@ -2,137 +2,100 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>CONECTA TV V17 - EXTREME</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONECTA T.O V6 - AI SUBTITLE</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: 'Arial Black', sans-serif; }
-        
-        /* Mesin Utama - Layer Transparan untuk Trigger */
-        #engine-trigger {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 9999; background: rgba(0,0,0,0.1); display: flex;
-            align-items: center; justify-content: center; cursor: pointer;
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; color: #fff; font-family: 'Arial Black', sans-serif; }
+        #booting { position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .boot-text { font-size: 3rem; letter-spacing: 15px; animation: flash 1.5s infinite; }
+        #yt-wrapper { width: 100%; height: 100%; }
+        iframe { width: 100%; height: 100%; border: none; }
+        #dash {
+            position: absolute; bottom: 5%; left: 3%; right: 3%;
+            background: rgba(0,0,0,0.9); border-left: 12px solid #ff0000;
+            padding: 20px 40px; transform: translateY(200%); transition: 0.5s;
+            z-index: 500; backdrop-filter: blur(8px);
         }
-
-        #tv-frame { width: 100vw; height: 100vh; position: relative; }
-        
-        /* Video Player */
-        iframe { width: 100%; height: 100%; border: none; position: absolute; z-index: 1; pointer-events: none; }
-
-        /* Kotak Nama Premium */
-        #info-bar { 
-            position: absolute; bottom: 50px; left: 50px; 
-            padding: 15px 40px; z-index: 100; opacity: 0; 
-            transition: 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
-            background: #000; border-bottom: 8px solid #f00;
-        }
-        #info-bar.show { opacity: 1; transform: scale(1.1); }
-        
-        .type-label { font-size: 0.9rem; color: #ff0; letter-spacing: 5px; display: block; }
-        #ch-title { margin: 0; font-size: 4rem; text-transform: uppercase; line-height: 1; }
-
-        /* Filter Analog Hitam Putih */
-        .mode-analog { filter: grayscale(100%) contrast(1.2); }
+        #dash.show { transform: translateY(0); }
+        .ch-name { font-size: 3.5rem; margin: 0; text-transform: uppercase; }
+        .tag { padding: 5px 12px; font-size: 0.8rem; border-radius: 4px; margin-right: 5px; font-weight: bold; }
+        .t-live { background: #ff0000; }
+        .t-sub { background: #28a745; animation: blink 1s infinite; }
+        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+        @keyframes blink { 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
-<div id="engine-trigger" onclick="bootEngine()">
-    <h2 id="msg">KETUK LAYAR UNTUK SINKRONISASI MESIN TV</h2>
+<div id="booting"><div class="boot-text">CONECTA T.O</div></div>
+
+<div id="yt-wrapper">
+    <iframe id="tv-frame" allow="autoplay; fullscreen" title="YouTube video player"></iframe>
 </div>
 
-<div id="tv-frame">
-    <iframe id="main-engine" allow="autoplay; fullscreen"></iframe>
-    <div id="info-bar">
-        <span id="ch-type" class="type-label">DIGITAL</span>
-        <h1 id="ch-title">OFFLINE</h1>
+<div id="dash">
+    <div style="margin-bottom: 5px;">
+        <span class="tag t-live">● LIVE</span>
+        <span id="ch-loc" class="tag" style="background:#0056b3">INDONESIA</span>
+        <span class="tag t-sub">AI AUTO-SUBTITLE ACTIVE</span>
     </div>
+    <h1 class="ch-name" id="ch-title">LOADING...</h1>
+    <p id="ch-desc" style="color: #aaa; margin: 5px 0 0 0;">Bahasa: Indonesia</p>
 </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-    const config = {
-        apiKey: "AIzaSyBoS3INezO0UQptcXYNZFbnPbmmf_hU8xc",
-        authDomain: "xbook-global26.firebaseapp.com",
-        databaseURL: "https://xbook-global26-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "xbook-global26",
-        appId: "1:384795261277:web:6a2b05dbea819b4f4590b4"
-    };
-
-    const db = getDatabase(initializeApp(config));
-    const player = document.getElementById('main-engine');
-    const info = document.getElementById('info-bar');
-    
+<script>
     const channels = [
-        { n: "Metro TV", id: "AUE5iHINUIw", t: "digital" },
-        { n: "iNews", id: "Kz3FK5FbBz8", t: "analog" },
-        { n: "Boomerang", id: "6a23sxk5_vM", t: "digital" },
-        { n: "Cartoon TV", id: "U8ZzsbxbYcE", t: "analog" },
-        { n: "Tom TV", id: "oV5gVoZQ7xU", t: "analog" }
+        { name: "Upin Ipin Live", id: "live_stream?channel=UCp0C_O9vV3-O3_Vn2p8mC9g", loc: "MALAYSIA", lang: "Melayu" },
+        { name: "Disney Kids", id: "P2v6i_L_S_0", loc: "USA", lang: "English" },
+        { name: "Marvel TV", id: "rS8_6t6SIsE", loc: "USA", lang: "English" },
+        { name: "Boomerang TV", id: "65IsA_SshL4", loc: "USA", lang: "English" },
+        { name: "Disney Channel", id: "w7pYhp496tg", loc: "USA", lang: "English" },
+        { name: "TVRI World", id: "eE5E8MXQpqc", loc: "GLOBAL", lang: "English" },
+        { name: "TVRI Sport", id: "6a23sxk5_vM", loc: "INDONESIA", lang: "Indonesia" },
+        { name: "Kompas TV", id: "2MC5ltEDu7w", loc: "INDONESIA", lang: "Indonesia" },
+        { name: "CNN Indonesia", id: "YbQwgoMoztA", loc: "INDONESIA", lang: "Indonesia" },
+        { name: "Al Jazeera", id: "_HviSyC7zSU", loc: "QATAR", lang: "English" }
     ];
 
-    let currentIdx = 0;
-    let engineReady = false;
+    let current = 0;
+    const frame = document.getElementById('tv-frame');
+    const dash = document.getElementById('dash');
 
-    // MESIN BOOTING
-    window.bootEngine = () => {
-        engineReady = true;
-        document.getElementById('engine-trigger').style.display = 'none';
+    function play(idx) {
+        const c = channels[idx];
+        document.getElementById('ch-title').innerText = c.name;
+        document.getElementById('ch-loc').innerText = c.loc;
+        document.getElementById('ch-desc').innerText = `Bahasa: ${c.lang}`;
         
-        // Paksa Fullscreen
-        if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+        // Parameter Penting untuk Subtitle:
+        // cc_load_policy=1 : Menampilkan subtitle secara paksa
+        // cc_lang_pref=id : Memilih bahasa Indonesia
+        // hl=id : Mengatur bahasa antarmuka ke Indonesia (agar AI YouTube menerjemahkan ke Indo)
+        const videoSource = `https://www.youtube.com/embed/${c.id}?autoplay=1&controls=0&cc_load_policy=1&cc_lang_pref=id&hl=id&vq=hd720`;
         
-        // Jalankan Mesin Sinkronisasi
-        startSync();
+        frame.src = videoSource;
+
+        dash.classList.add('show');
+        setTimeout(() => dash.classList.remove('show'), 5000);
+    }
+
+    window.onload = () => {
+        setTimeout(() => {
+            document.getElementById('booting').style.display = "none";
+            play(current);
+        }, 3000);
     };
 
-    function startSync() {
-        onValue(ref(db, 'conecta_tv/current_idx'), (snap) => {
-            if(!engineReady) return;
-            currentIdx = snap.val() || 0;
-            runTV();
-        });
-    }
-
-    function runTV() {
-        const ch = channels[currentIdx];
-        if(!ch) return;
-
-        // Injeksi Link ke Player
-        player.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&mute=0&rel=0&enablejsapi=1&origin=${window.location.origin}`;
-        
-        // Tampilkan Nama Channel
-        document.getElementById('ch-title').innerText = ch.n;
-        document.getElementById('ch-type').innerText = ch.t.toUpperCase();
-        
-        // Mode Analog (Hitam Putih)
-        player.className = (ch.t === "analog") ? "mode-analog" : "";
-        
-        // Animasi Kotak Nama
-        info.classList.add('show');
-        setTimeout(() => info.classList.remove('show'), 5000);
-    }
-
-    // MESIN REMOTE PR/CH (Key Detection)
     window.addEventListener('keydown', (e) => {
-        if(!engineReady) return;
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
 
-        let next;
-        if (e.key === "ArrowUp") {
-            next = (currentIdx + 1) % channels.length;
-        } else if (e.key === "ArrowDown") {
-            next = (currentIdx - 1 + channels.length) % channels.length;
-        } else {
-            return;
+        if (e.key === "ArrowUp" || e.key === "ChannelUp" || e.keyCode === 427) {
+            current = (current + 1) % channels.length;
+            play(current);
+        } else if (e.key === "ArrowDown" || e.key === "ChannelDown" || e.keyCode === 428) {
+            current = (current - 1 + channels.length) % channels.length;
+            play(current);
         }
-
-        // Eksekusi Instan (Tanpa Delay)
-        currentIdx = next;
-        runTV();
-        
-        // Update Cloud Database
-        update(ref(db, 'conecta_tv'), { current_idx: next });
     });
 </script>
 </body>
