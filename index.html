@@ -3,19 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA T.O V22 - FULL IPTV</title>
+    <title>CONECTA T.O V23 - AUTO ENGINE</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: 'Arial Black', sans-serif; }
         
-        /* Trigger Fullscreen */
-        #start-gate { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            z-index: 9999; display: flex; align-items: center; justify-content: center;
-            background: #000; cursor: pointer;
-        }
-
-        #booting { position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; display: none; align-items: center; justify-content: center; }
+        #booting { position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
         .boot-text { font-size: 3rem; letter-spacing: 15px; animation: flash 1.5s infinite; }
         
         #tv-container { width: 100%; height: 100%; position: relative; }
@@ -43,11 +36,7 @@
         @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
     </style>
 </head>
-<body onclick="launchTV()">
-
-<div id="start-gate">
-    <div class="boot-text" style="font-size: 1.5rem;">KETUK LAYAR UNTUK MENGHUBUNGKAN KE SATELIT</div>
-</div>
+<body>
 
 <div id="booting"><div class="boot-text">CONECTA T.O</div></div>
 
@@ -61,12 +50,11 @@
         <span class="tag" id="mode-text" style="background:#ff0000">● LIVE</span>
         <span id="ch-loc" class="tag" style="background:#0056b3">INDONESIA</span>
     </div>
-    <h1 class="ch-name" id="ch-title">LOADING...</h1>
-    <span class="uhf-code" id="ch-uhf">UHF: 00 | TF: 000.00 KHZ</span>
+    <h1 class="ch-name" id="ch-title">MENUNGGU SINYAL...</h1>
+    <span class="uhf-code" id="ch-uhf">UHF: -- | TF: ---.-- KHZ</span>
 </div>
 
 <script>
-    // Link m3u8 asli dari file yang kamu kasih
     const channels = [
         { name: "SCTV", url: "https://video.liputan6.com/sctv/live/playlist.m3u8", type: "D", uhf: "30", tf: "546.00" },
         { name: "TRANS TV", url: "https://idp.mivo.com/mivo/transtv/playlist.m3u8", type: "A", uhf: "40", tf: "626.25" },
@@ -77,36 +65,18 @@
 
     let current = 0;
     let signalTimer;
-    let engineRunning = false;
+    let engineReady = false;
     const player = document.getElementById('main-player');
     const dash = document.getElementById('dash');
     const nosignal = document.getElementById('no-signal-box');
     const hls = new Hls();
 
-    window.launchTV = () => {
-        if(engineRunning) return;
-        engineRunning = true;
-        
-        // Auto Fullscreen
-        if (document.documentElement.requestFullscreen) {
-            document.documentElement.requestFullscreen().catch(() => {});
-        }
-
-        document.getElementById('start-gate').style.display = 'none';
-        document.getElementById('booting').style.display = 'flex';
-
-        setTimeout(() => {
-            document.getElementById('booting').style.display = "none";
-            tuneChannel(current);
-        }, 3000);
-    };
-
     function tuneChannel(idx) {
         clearInterval(signalTimer);
         nosignal.style.display = "none";
+        document.getElementById('booting').style.display = "none";
+        
         const c = channels[idx];
-
-        // UI Update
         document.getElementById('ch-title').innerText = c.name;
         document.getElementById('ch-uhf').innerText = `UHF: ${c.uhf} | TF: ${c.tf} KHZ`;
         
@@ -122,18 +92,13 @@
             player.className = "";
         }
 
-        // HLS Tuning (VLC Mode)
         if (Hls.isSupported()) {
             hls.loadSource(c.url);
             hls.attachMedia(player);
-            hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                player.play();
-            });
+            hls.on(Hls.Events.MANIFEST_PARSED, function() { player.play(); });
         } else if (player.canPlayType('application/vnd.apple.mpegurl')) {
             player.src = c.url;
-            player.addEventListener('loadedmetadata', function() {
-                player.play();
-            });
+            player.play();
         }
 
         dash.classList.add('show');
@@ -151,9 +116,13 @@
         }, 10000);
     }
 
-    // --- WILAYAH SAKRAL PR/CH (V6 LOGIC) ---
+    // --- WILAYAH SAKRAL PR/CH DENGAN AUTO FULLSCREEN ---
     window.addEventListener('keydown', (e) => {
-        if (!engineRunning) return;
+        // Otomatis Fullscreen saat tombol PR/CH ditekan pertama kali
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        }
+
         if (e.key === "ArrowUp" || e.keyCode === 38 || e.keyCode === 427) {
             current = (current + 1) % channels.length;
             tuneChannel(current);
