@@ -3,134 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA T.O PREMIUM</title>
+    <title>CONECTA T.O V4 - PREMIUM</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; color: #fff; font-family: 'Segoe UI', sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; color: #fff; font-family: 'Arial Black', sans-serif; }
         
-        /* Booting Hanya Sekali */
+        /* Booting Premium (Hanya Sekali) */
         #booting-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #111; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 1s ease;
+            background: radial-gradient(circle, #222 0%, #000 100%);
+            z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .logo-box { border: 4px solid #fff; padding: 20px 40px; animation: glow 2s infinite; }
-        .boot-text { font-size: 3.5rem; font-weight: 900; letter-spacing: 15px; }
-
-        /* Dashboard Info Channel */
-        #channel-dashboard {
-            position: absolute; bottom: 5%; left: 5%; right: 5%;
-            background: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.7));
-            padding: 25px; border-left: 10px solid #ff0000;
-            display: flex; align-items: center; gap: 30px;
-            transform: translateY(150%); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 500; border-radius: 0 15px 15px 0;
+        .boot-loader {
+            width: 100px; height: 100px; border: 5px solid #333; border-top: 5px solid #ff0000;
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
         }
-        #channel-dashboard.show { transform: translateY(0); }
+        .boot-text { font-size: 2.5rem; letter-spacing: 15px; font-weight: 900; text-shadow: 0 0 20px #ff0000; }
 
-        .ch-main { flex-grow: 1; }
-        .ch-name { font-size: 4rem; font-weight: 900; margin: 0; text-transform: uppercase; line-height: 1; color: #fff; }
-        .ch-meta { display: flex; gap: 15px; margin-top: 10px; font-weight: bold; font-size: 1.1rem; }
-        
-        /* Badges */
-        .badge { padding: 5px 15px; border-radius: 5px; text-transform: uppercase; font-size: 0.9rem; }
-        .badge-live { background: #ff0000; animation: blink 1s infinite; }
-        .badge-lang { background: #444; border: 1px solid #666; }
-        .badge-country { background: #0056b3; }
+        /* Player YouTube */
+        #yt-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        iframe { width: 100%; height: 100%; border: none; pointer-events: none; }
 
-        /* Iframe & Bang Icon */
-        iframe { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; }
-        #error-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 400; display: none;
-            flex-direction: column; align-items: center; justify-content: center;
+        /* Dashboard Info Modern */
+        #dashboard {
+            position: absolute; bottom: 5%; left: 3%; right: 3%;
+            background: rgba(0, 0, 0, 0.85); border-left: 12px solid #ff0000;
+            padding: 20px 40px; display: flex; align-items: center;
+            transform: translateY(200%); transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+            z-index: 500; backdrop-filter: blur(10px);
         }
-        .bang { font-size: 15rem; color: #ff0000; animation: bounce 0.5s infinite alternate; }
+        #dashboard.show { transform: translateY(0); }
+        .ch-title { font-size: 4rem; margin: 0; color: #fff; text-transform: uppercase; }
+        .ch-info-tags { display: flex; gap: 10px; margin-bottom: 5px; }
+        .tag { padding: 4px 12px; font-size: 0.8rem; border-radius: 4px; font-weight: bold; }
+        .tag-live { background: #ff0000; animation: pulse 1s infinite; }
+        .tag-geo { background: #0056b3; }
+        .tag-sub { background: #28a745; }
 
-        @keyframes glow { 0%, 100% { box-shadow: 0 0 20px #fff; } 50% { box-shadow: 0 0 50px #ff0000; } }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } }
-        @keyframes bounce { from { transform: scale(1); } to { transform: scale(1.15); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
 <div id="booting-screen">
-    <div class="logo-box">
-        <div class="boot-text">CONECTA T.O</div>
-    </div>
-    <p style="margin-top: 20px; letter-spacing: 5px; color: #888;">SYSTEM STARTING...</p>
+    <div class="boot-loader"></div>
+    <div class="boot-text">CONECTA T.O</div>
 </div>
 
-<div id="error-overlay">
-    <div class="bang">!</div>
-    <h1 style="color:#f00; letter-spacing:10px;">SINYAL HILANG</h1>
+<div id="yt-container">
+    <iframe id="main-frame" allow="autoplay; fullscreen"></iframe>
 </div>
 
-<iframe id="tv-frame" allow="autoplay; fullscreen"></iframe>
-
-<div id="channel-dashboard">
-    <div class="ch-main">
-        <div class="ch-meta">
-            <span id="meta-idx" style="color: #ff0000;">CH 01</span>
-            <span class="badge badge-live">● LIVE</span>
-            <span class="badge badge-country" id="meta-country">🇮🇩 INDONESIA</span>
-            <span class="badge badge-lang" id="meta-lang">BAHASA</span>
+<div id="dashboard">
+    <div style="flex-grow: 1;">
+        <div class="ch-info-tags">
+            <span class="tag tag-live">● LIVE</span>
+            <span class="tag tag-geo" id="meta-geo">INDONESIA</span>
+            <span class="tag tag-sub">AUTO-SUB: ID</span>
         </div>
-        <h1 class="ch-name" id="meta-name">LOADING...</h1>
+        <h1 class="ch-title" id="meta-name">LOADING...</h1>
+        <p id="meta-lang" style="margin: 5px 0 0 0; color: #aaa; font-size: 1rem;">Bahasa: Indonesia</p>
     </div>
+    <div id="ch-num-big" style="font-size: 5rem; font-weight: 900; color: rgba(255,255,255,0.1);">01</div>
 </div>
 
 <script>
     const channels = [
-        { name: "iNews TV", url: "https://www.youtube.com/embed/Kz3FK5FbBz8?autoplay=1&controls=0", country: "🇮🇩 INDONESIA", lang: "BAHASA", live: true },
-        { name: "Metro TV", url: "https://www.youtube.com/embed/AUE5iHINUIw?autoplay=1&controls=0", country: "🇮🇩 INDONESIA", lang: "BAHASA", live: true },
-        { name: "TVRI Nasional", url: "https://www.youtube.com/embed/sAFSy3ys-ns?autoplay=1&controls=0", country: "🇮🇩 INDONESIA", lang: "BAHASA", live: true },
-        { name: "TVRI World", url: "https://www.youtube.com/embed/eE5E8MXQpqc?autoplay=1&controls=0", country: "🌐 GLOBAL", lang: "ENGLISH", live: true },
-        { name: "TVRI Sport", url: "https://www.youtube.com/embed/6a23sxk5_vM?autoplay=1&controls=0", country: "🇮🇩 INDONESIA", lang: "BAHASA", live: true },
-        { name: "Upin Ipin (Les' Copaque)", url: "https://www.youtube.com/embed/live_stream?channel=UCp0C_O9vV3-O3_Vn2p8mC9g&autoplay=1&controls=0", country: "🇲🇾 MALAYSIA", lang: "MELAYU", live: "AUTO" },
-        { name: "RTV", url: "https://www.rtv.co.id/livertv.php", country: "🇮🇩 INDONESIA", lang: "BAHASA", live: true },
-        { name: "TRANS 7", url: "https://www.transtv.co.id/live/trans7", country: "🇮🇩 INDONESIA", lang: "BAHASA", live: true }
+        { name: "iNews TV", id: "Kz3FK5FbBz8", geo: "INDONESIA", lang: "Indonesia" },
+        { name: "Metro TV", id: "AUE5iHINUIw", geo: "INDONESIA", lang: "Indonesia" },
+        { name: "TVRI Nasional", id: "sAFSy3ys-ns", geo: "INDONESIA", lang: "Indonesia" },
+        { name: "TVRI World", id: "eE5E8MXQpqc", geo: "GLOBAL", lang: "English" },
+        { name: "TVRI Sport", id: "6a23sxk5_vM", geo: "INDONESIA", lang: "Indonesia" },
+        { name: "Kompas TV", id: "2MC5ltEDu7w", geo: "INDONESIA", lang: "Indonesia" },
+        { name: "CNN Indonesia", id: "YbQwgoMoztA", geo: "INDONESIA", lang: "Indonesia" },
+        { name: "DW News", id: "lCp-9YihW-c", geo: "JERMAN", lang: "English" },
+        { name: "Al Jazeera", id: "_HviSyC7zSU", geo: "QATAR", lang: "English" },
+        { name: "Upin Ipin Live", id: "live_stream?channel=UCp0C_O9vV3-O3_Vn2p8mC9g", geo: "MALAYSIA", lang: "Melayu" }
     ];
 
     let currentIdx = 0;
-    const frame = document.getElementById('tv-frame');
-    const dash = document.getElementById('channel-dashboard');
+    const frame = document.getElementById('main-frame');
+    const dash = document.getElementById('dashboard');
     const boot = document.getElementById('booting-screen');
 
-    function updateDash(idx) {
+    function changeChannel(idx) {
         const ch = channels[idx];
-        document.getElementById('meta-idx').innerText = `CH ${(idx+1).toString().padStart(2, '0')}`;
-        document.getElementById('meta-name').innerText = ch.name;
-        document.getElementById('meta-country').innerText = ch.country;
-        document.getElementById('meta-lang').innerText = ch.lang;
         
+        // Update UI
+        document.getElementById('meta-name').innerText = ch.name;
+        document.getElementById('meta-geo').innerText = ch.geo;
+        document.getElementById('meta-lang').innerText = `Bahasa: ${ch.lang}`;
+        document.getElementById('ch-num-big').innerText = (idx + 1).toString().padStart(2, '0');
+
+        // URL YouTube dengan Paksa Subtitle (cc_load_policy=1 & cc_lang_pref=id)
+        const baseUrl = ch.id.includes('live_stream') ? 
+            `https://www.youtube.com/embed/${ch.id}` : 
+            `https://www.youtube.com/embed/${ch.id}`;
+            
+        frame.src = `${baseUrl}?autoplay=1&controls=0&rel=0&cc_load_policy=1&cc_lang_pref=id&hl=id`;
+
+        // Tampilkan Dashboard
         dash.classList.add('show');
-        setTimeout(() => dash.classList.remove('show'), 5000);
+        setTimeout(() => dash.classList.remove('show'), 6000);
     }
 
-    function changeCH(idx) {
-        const ch = channels[idx];
-        frame.src = ch.url;
-        updateDash(idx);
-    }
-
-    // Jalankan Booting Sekali Saja
+    // Booting Sequence
     window.onload = () => {
         setTimeout(() => {
-            boot.style.opacity = "0";
-            setTimeout(() => boot.style.display = "none", 1000);
-            changeCH(currentIdx);
-        }, 3500);
+            boot.style.display = "none";
+            changeChannel(currentIdx);
+        }, 4000);
     };
 
+    // Remote Control (PR/CH)
     window.addEventListener('keydown', (e) => {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen();
 
         if (e.key === "ArrowUp" || e.key === "ChannelUp" || e.keyCode === 427) {
             currentIdx = (currentIdx + 1) % channels.length;
-            changeCH(currentIdx);
+            changeChannel(currentIdx);
         } else if (e.key === "ArrowDown" || e.key === "ChannelDown" || e.keyCode === 428) {
             currentIdx = (currentIdx - 1 + channels.length) % channels.length;
-            changeCH(currentIdx);
+            changeChannel(currentIdx);
         }
     });
 </script>
