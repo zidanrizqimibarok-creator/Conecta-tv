@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA T.O V6 - NO SIGNAL FIX</title>
+    <title>CONECTA T.O V19 - UHF ENGINE</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; color: #fff; font-family: 'Arial Black', sans-serif; }
         #booting { position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
@@ -12,7 +12,7 @@
         #yt-wrapper { width: 100%; height: 100%; position: relative; }
         iframe { width: 100%; height: 100%; border: none; }
 
-        /* TAMPILAN NO SIGNAL (KOTAK PESAN) */
+        /* NO SIGNAL OVERLAY */
         #no-signal-box {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 900; display: none;
@@ -24,6 +24,7 @@
             box-shadow: 0 0 20px rgba(255,255,255,0.5);
         }
 
+        /* DASHBOARD DENGAN KODE UHF/TF */
         #dash {
             position: absolute; bottom: 5%; left: 3%; right: 3%;
             background: rgba(0,0,0,0.9); border-left: 12px solid #ff0000;
@@ -31,13 +32,12 @@
             z-index: 950; backdrop-filter: blur(8px);
         }
         #dash.show { transform: translateY(0); }
-        .ch-name { font-size: 3.5rem; margin: 0; text-transform: uppercase; }
+        .ch-name { font-size: 3.5rem; margin: 0; text-transform: uppercase; line-height: 1.1; }
         .tag { padding: 5px 12px; font-size: 0.8rem; border-radius: 4px; margin-right: 5px; font-weight: bold; }
         .t-live { background: #ff0000; }
+        .uhf-code { color: #00f2ff; font-family: monospace; font-size: 1.1rem; margin-top: 10px; display: block; letter-spacing: 2px; }
         
-        /* CSS HITAM PUTIH */
         .analog-bw { filter: grayscale(100%) contrast(1.1); }
-
         @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
     </style>
 </head>
@@ -46,10 +46,8 @@
 <div id="booting"><div class="boot-text">CONECTA T.O</div></div>
 
 <div id="yt-wrapper">
-    <div id="no-signal-box">
-        <div class="error-msg">! NO SIGNAL</div>
-    </div>
-    <iframe id="tv-frame" allow="autoplay; fullscreen" title="YouTube video player"></iframe>
+    <div id="no-signal-box"><div class="error-msg">! NO SIGNAL</div></div>
+    <div id="player-container"></div>
 </div>
 
 <div id="dash">
@@ -58,70 +56,84 @@
         <span id="ch-loc" class="tag" style="background:#0056b3">INDONESIA</span>
     </div>
     <h1 class="ch-name" id="ch-title">LOADING...</h1>
-    <p id="ch-desc" style="color: #aaa; margin: 5px 0 0 0;">Transmission: Secure</p>
+    <span class="uhf-code" id="ch-uhf">UHF: 00 | TF: 000.00 KHZ</span>
 </div>
 
 <script>
+    // Load YouTube IFrame API
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
     const channels = [
-        { name: "Metro TV", id: "AUE5iHINUIw", type: "D", loc: "INDONESIA" },
-        { name: "iNews", id: "Kz3FK5FbBz8", type: "A", loc: "INDONESIA" },
-        { name: "Boomerang", id: "6a23sxk5_vM", type: "D", loc: "USA" },
-        { name: "Cartoon TV", id: "U8ZzsbxbYcE", type: "A", loc: "USA" },
-        { name: "Tom TV", id: "oV5gVoZQ7xU", type: "A", loc: "INDONESIA" }
+        { name: "Metro TV", id: "AUE5iHINUIw", type: "D", loc: "INDONESIA", uhf: "32", tf: "562.00" },
+        { name: "iNews", id: "Kz3FK5FbBz8", type: "A", loc: "INDONESIA", uhf: "44", tf: "658.25" },
+        { name: "Boomerang", id: "6a23sxk5_vM", type: "D", loc: "USA", uhf: "21", tf: "474.00" },
+        { name: "Cartoon TV", id: "U8ZzsbxbYcE", type: "A", loc: "USA", uhf: "37", tf: "602.25" },
+        { name: "Tom TV", id: "oV5gVoZQ7xU", type: "A", loc: "INDONESIA", uhf: "29", tf: "538.25" }
     ];
 
     let current = 0;
+    let ytPlayer;
     let signalInterval;
-    const frame = document.getElementById('tv-frame');
     const dash = document.getElementById('dash');
     const nosignal = document.getElementById('no-signal-box');
 
-    function play(idx) {
-        clearInterval(signalInterval); // Hentikan mesin signal lama
-        nosignal.style.display = "none";
-
-        const c = channels[idx];
-        document.getElementById('ch-title').innerText = c.name;
-        document.getElementById('ch-loc').innerText = c.loc;
-
-        // Reset Filter
-        frame.className = "";
-        
-        if(c.type === "A") {
-            frame.classList.add("analog-bw"); // Paksa Hitam Putih
-            document.getElementById('mode-text').innerText = "● ANALOG";
-            document.getElementById('mode-text').style.background = "#555";
-            document.getElementById('ch-desc').innerText = "Status: Weak Signal";
-            
-            // MESIN NO SIGNAL 10 DETIK SEKALI
-            signalInterval = setInterval(() => {
-                nosignal.style.display = "flex"; // Munculkan tulisan ! NO SIGNAL
-                setTimeout(() => { nosignal.style.display = "none"; }, 1500); // Hilang setelah 1.5 detik
-            }, 10000);
-
-        } else {
-            document.getElementById('mode-text').innerText = "● LIVE";
-            document.getElementById('mode-text').style.background = "#ff0000";
-            document.getElementById('ch-desc').innerText = "Status: Digital Color HD";
-        }
-        
-        // cc_load_policy=0 hapus subtitle
-        const videoSource = `https://www.youtube.com/embed/${c.id}?autoplay=1&controls=0&cc_load_policy=0&iv_load_policy=3&rel=0`;
-        
-        frame.src = videoSource;
-
-        dash.classList.add('show');
-        setTimeout(() => dash.classList.remove('show'), 5000);
+    function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('player-container', {
+            height: '100%',
+            width: '100%',
+            videoId: channels[current].id,
+            playerVars: { 'autoplay': 1, 'controls': 0, 'cc_load_policy': 0, 'iv_load_policy': 3, 'rel': 0 },
+            events: { 'onReady': onPlayerReady }
+        });
     }
 
-    window.onload = () => {
+    function onPlayerReady(event) {
         setTimeout(() => {
             document.getElementById('booting').style.display = "none";
             play(current);
         }, 3000);
-    };
+    }
 
-    // --- TEMPAT SAKRAL PR/CH (V6 ASLI) ---
+    function play(idx) {
+        clearInterval(signalInterval);
+        nosignal.style.display = "none";
+        if(ytPlayer && ytPlayer.unMute) ytPlayer.unMute();
+
+        const c = channels[idx];
+        document.getElementById('ch-title').innerText = c.name;
+        document.getElementById('ch-loc').innerText = c.loc;
+        document.getElementById('ch-uhf').innerText = `UHF: ${c.uhf} | TF: ${c.tf} KHZ`;
+
+        const frameEl = ytPlayer.getIframe();
+        frameEl.className = "";
+        
+        if(c.type === "A") {
+            frameEl.classList.add("analog-bw");
+            document.getElementById('mode-text').innerText = "● ANALOG";
+            document.getElementById('mode-text').style.background = "#555";
+            
+            signalInterval = setInterval(() => {
+                nosignal.style.display = "flex";
+                ytPlayer.mute(); // SUARA ILANG PAS NO SIGNAL
+                setTimeout(() => { 
+                    nosignal.style.display = "none"; 
+                    ytPlayer.unMute(); // SUARA BALIK LAGI
+                }, 1500);
+            }, 10000);
+        } else {
+            document.getElementById('mode-text').innerText = "● LIVE";
+            document.getElementById('mode-text').style.background = "#ff0000";
+        }
+        
+        ytPlayer.loadVideoById(c.id);
+        dash.classList.add('show');
+        setTimeout(() => dash.classList.remove('show'), 5000);
+    }
+
+    // --- TEMPAT SAKRAL PR/CH (TIDAK BERUBAH) ---
     window.addEventListener('keydown', (e) => {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
 
