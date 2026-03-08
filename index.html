@@ -2,13 +2,19 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>CONECTA T.O V14 - HYBRID ENGINE</title>
+    <title>CONECTA T.O V14.1 - HYBRID ENGINE</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; }
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            background: #000; overflow: hidden; cursor: none; 
+        }
         #tv-screen { width: 100vw; height: 100vh; position: relative; }
         
         /* Player Utama */
-        iframe { width: 100%; height: 100%; border: none; position: absolute; z-index: 10; transition: filter 0.5s; }
+        iframe { 
+            width: 100%; height: 100%; border: none; 
+            position: absolute; z-index: 10; transition: filter 0.5s; 
+        }
 
         /* Efek Semut (Static) */
         #noise-overlay { 
@@ -27,9 +33,8 @@
         #info-bar.show { opacity: 1; }
         .golongan { color: #ff0; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; }
 
-        /* Filter Hitam Putih untuk Analog */
+        /* Filter Analog */
         .analog-bw { filter: grayscale(100%) contrast(120%); }
-        .analog-noise-active { opacity: 0.15 !important; }
     </style>
 </head>
 <body>
@@ -46,7 +51,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const config = {
         apiKey: "AIzaSyBoS3INezO0UQptcXYNZFbnPbmmf_hU8xc",
@@ -56,12 +61,13 @@
         appId: "1:384795261277:web:6a2b05dbea819b4f4590b4"
     };
 
-    const db = getDatabase(initializeApp(config));
+    const app = initializeApp(config);
+    const db = getDatabase(app);
     const player = document.getElementById('main-player');
     const info = document.getElementById('info-bar');
     const noise = document.getElementById('noise-overlay');
 
-    // Daftar Channel Permanen (Tanpa Center)
+    // Daftar Channel Permanen
     const channelList = [
         { name: "Metro TV", id: "AUE5iHINUIw", type: "digital" },
         { name: "iNews", id: "Kz3FK5FbBz8", type: "analog" },
@@ -71,33 +77,37 @@
     ];
 
     let currentIdx = 0;
-    let analogInterval;
-    let noiseInterval;
+    let analogInterval, noiseInterval;
 
-    // Sinkronisasi dengan Remote Arrow (Database)
+    // 1. Sinkronisasi Database
     onValue(ref(db, 'conecta_tv/current_idx'), (snap) => {
-        currentIdx = snap.val() || 0;
+        const val = snap.val();
+        currentIdx = (val !== null) ? val : 0;
         playChannel(currentIdx);
     });
 
     function playChannel(idx) {
         const ch = channelList[idx];
-        player.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&mute=0&rel=0&enablejsapi=1`;
+        if(!ch) return;
+
+        const newSrc = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&mute=0&rel=0&enablejsapi=1`;
+        
+        if(player.src !== newSrc) {
+            player.src = newSrc;
+        }
         
         document.getElementById('ch-name').innerText = ch.name;
         document.getElementById('ch-gol').innerText = ch.type + " TV";
         
-        // Munculkan Kotak Nama
         info.classList.add('show');
         setTimeout(() => info.classList.remove('show'), 5000);
 
-        // Reset Gangguan
+        // Reset Efek Analog
         clearInterval(analogInterval);
         clearInterval(noiseInterval);
         player.classList.remove('analog-bw');
         noise.style.opacity = 0;
 
-        // Jika Analog, Aktifkan Gangguan
         if (ch.type === "analog") {
             startAnalogEffects();
         }
@@ -107,30 +117,35 @@
         // Efek Hitam Putih 5 detik setiap 1 menit
         analogInterval = setInterval(() => {
             player.classList.add('analog-bw');
-            setTimeout(() => {
-                player.classList.remove('analog-bw');
-            }, 5000);
+            setTimeout(() => player.classList.remove('analog-bw'), 5000);
         }, 60000);
 
-        // Efek Semut tipis setiap 5 detik
+        // Efek Semut setiap 5 detik
         noiseInterval = setInterval(() => {
             noise.style.opacity = 0.15;
-            setTimeout(() => {
-                noise.style.opacity = 0;
-            }, 500);
+            setTimeout(() => noise.style.opacity = 0, 500);
         }, 5000);
     }
 
-    // Remote Control (Keyboard Arrow)
+    // 2. Fungsi Pindah Channel (Wajib ke Firebase)
+    async function changeCH(delta) {
+        const snapshot = await get(ref(db, 'conecta_tv/current_idx'));
+        let nowIdx = snapshot.val() || 0;
+        let nextIdx = (nowIdx + delta + channelList.length) % channelList.length;
+        
+        update(ref(db, 'conecta_tv'), { 
+            current_idx: nextIdx
+        });
+    }
+
+    // 3. Remote Control Keyboard
     window.addEventListener('keydown', (e) => {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+
         if (e.key === "ArrowUp") {
-            let next = (currentIdx + 1) % channelList.length;
-            update(ref(db, 'conecta_tv'), { current_idx: next });
-        }
-        if (e.key === "ArrowDown") {
-            let prev = (currentIdx - 1 + channelList.length) % channelList.length;
-            update(ref(db, 'conecta_tv'), { current_idx: prev });
+            changeCH(1);
+        } else if (e.key === "ArrowDown") {
+            changeCH(-1);
         }
     });
 </script>
