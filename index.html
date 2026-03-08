@@ -2,105 +2,91 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONECTA T.O V6 - AUTO SUB</title>
+    <title>CONECTA T.O - TV SCREEN</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; color: #fff; font-family: 'Arial Black', sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: #fff; font-family: sans-serif; }
+        #tv-screen { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; }
+        iframe { width: 100%; height: 100%; border: none; }
         
-        /* Booting Mewah */
-        #booting {
-            position: absolute; width: 100%; height: 100%; background: #000;
-            z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        /* Layar Putus Koneksi (!) */
+        #kill-screen { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #000; z-index: 1000; display: none; 
+            flex-direction: column; align-items: center; justify-content: center; 
         }
-        .boot-text { font-size: 3.5rem; letter-spacing: 20px; font-weight: 900; animation: pulse 1.5s infinite; }
-        .loading-bar { width: 200px; height: 4px; background: #333; margin-top: 20px; position: relative; overflow: hidden; }
-        .loading-bar::after { content: ''; position: absolute; width: 50%; height: 100%; background: #ff0000; animation: load 1.5s infinite; }
-
-        /* Iframe */
-        iframe { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; }
+        .bang { font-size: 15rem; color: #ff0000; animation: bounce 0.5s infinite alternate; font-weight: 900; }
+        @keyframes bounce { from { transform: scale(1); } to { transform: scale(1.1); } }
 
         /* Dashboard */
         #dash {
-            position: absolute; bottom: 5%; left: 3%; right: 3%;
-            background: rgba(0,0,0,0.9); border-left: 15px solid #ff0000;
-            padding: 25px 45px; transform: translateY(250%); transition: 0.6s cubic-bezier(0.19, 1, 0.22, 1);
-            z-index: 500; backdrop-filter: blur(10px);
+            position: absolute; bottom: 5%; left: 3%; background: rgba(0,0,0,0.9);
+            border-left: 10px solid #f00; padding: 20px; transition: 0.5s; transform: translateY(200%);
         }
         #dash.show { transform: translateY(0); }
-        .ch-name { font-size: 4rem; margin: 0; text-transform: uppercase; line-height: 1; }
-        .tag { padding: 5px 15px; font-size: 0.9rem; border-radius: 5px; margin-right: 8px; font-weight: bold; display: inline-block; }
-        .t-live { background: #ff0000; animation: blink 1s infinite; }
-        .t-sub { background: #28a745; border: 1px solid #fff; }
-
-        @keyframes pulse { 0%, 100% { opacity: 1; text-shadow: 0 0 20px #ff0000; } 50% { opacity: 0.4; } }
-        @keyframes load { from { left: -50%; } to { left: 100%; } }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
-<div id="booting">
-    <div class="boot-text">CONECTA T.O</div>
-    <div class="loading-bar"></div>
-</div>
-
-<iframe id="tv-frame" allow="autoplay; fullscreen; speaker"></iframe>
-
-<div id="dash">
-    <div style="margin-bottom: 8px;">
-        <span class="tag t-live">● LIVE</span>
-        <span class="tag" style="background: #0056b3;" id="ch-loc">INDONESIA</span>
-        <span class="tag t-sub">AUTO-SUB INDONESIA [AI]</span>
+<div id="tv-screen">
+    <div id="kill-screen"><div class="bang">!</div><h1>KONEKSI DIPUTUS PUSAT</h1></div>
+    <iframe id="main-player" allow="autoplay; fullscreen"></iframe>
+    <div id="dash">
+        <h1 id="ch-name" style="margin:0; font-size:3rem; text-transform:uppercase;">OFFLINE</h1>
+        <p id="ch-meta" style="color:#f00; font-weight:bold;">SISTEM SIAP</p>
     </div>
-    <h1 class="ch-name" id="ch-title">LOADING...</h1>
-    <p id="ch-desc" style="color: #aaa; margin: 8px 0 0 0; font-size: 1.2rem;">Bahasa: Indonesia</p>
 </div>
 
-<script>
-    const channels = [
-        { name: "Upin Ipin Live", id: "live_stream?channel=UCp0C_O9vV3-O3_Vn2p8mC9g", loc: "MALAYSIA", lang: "Melayu" },
-        { name: "Disney Kids", id: "P2v6i_L_S_0", loc: "USA", lang: "English" },
-        { name: "Marvel TV", id: "rS8_6t6SIsE", loc: "USA", lang: "English" },
-        { name: "Boomerang TV", id: "65IsA_SshL4", loc: "USA", lang: "English" },
-        { name: "Disney Channel", id: "w7pYhp496tg", loc: "USA", lang: "English" },
-        { name: "TVRI World", id: "eE5E8MXQpqc", loc: "GLOBAL", lang: "English" },
-        { name: "TVRI Sport", id: "6a23sxk5_vM", loc: "INDONESIA", lang: "Indonesia" },
-        { name: "Kompas TV", id: "2MC5ltEDu7w", loc: "INDONESIA", lang: "Indonesia" },
-        { name: "CNN Indonesia", id: "YbQwgoMoztA", loc: "INDONESIA", lang: "Indonesia" },
-        { name: "Al Jazeera", id: "_HviSyC7zSU", loc: "QATAR", lang: "English" }
-    ];
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    let current = 0;
-    const frame = document.getElementById('tv-frame');
-    const dash = document.getElementById('dash');
-
-    function play(idx) {
-        const c = channels[idx];
-        document.getElementById('ch-title').innerText = c.name;
-        document.getElementById('ch-loc').innerText = c.loc;
-        document.getElementById('ch-desc').innerText = `Bahasa: ${c.lang}`;
-        
-        // PENTING: Kode paksa subtitle hl=id (bahasa interface), cc_lang_pref=id (bahasa teks), cc_load_policy=1 (selalu ON)
-        const vidId = c.id;
-        frame.src = `https://www.youtube.com/embed/${vidId}?autoplay=1&controls=0&cc_load_policy=1&cc_lang_pref=id&hl=id&rel=0`;
-
-        dash.classList.add('show');
-        setTimeout(() => dash.classList.remove('show'), 6000);
-    }
-
-    window.onload = () => {
-        setTimeout(() => {
-            document.getElementById('booting').style.display = "none";
-            play(current);
-        }, 4000);
+    const firebaseConfig = {
+        apiKey: "AIzaSyBoS3INezO0UQptcXYNZFbnPbmmf_hU8xc",
+        authDomain: "xbook-global26.firebaseapp.com",
+        databaseURL: "https://xbook-global26-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "xbook-global26",
+        storageBucket: "xbook-global26.firebasestorage.app",
+        messagingSenderId: "384795261277",
+        appId: "1:384795261277:web:6a2b05dbea819b4f4590b4"
     };
 
-    window.addEventListener('keydown', (e) => {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
-        if (e.key === "ArrowUp" || e.key === "ChannelUp" || e.keyCode === 427) {
-            current = (current + 1) % channels.length; play(current);
-        } else if (e.key === "ArrowDown" || e.key === "ChannelDown" || e.keyCode === 428) {
-            current = (current - 1 + channels.length) % channels.length; play(current);
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const channels = [
+        { name: "Upin Ipin Live", id: "live_stream?channel=UCp0C_O9vV3-O3_Vn2p8mC9g" },
+        { name: "Disney Kids", id: "P2v6i_L_S_0" },
+        { name: "Marvel TV", id: "rS8_6t6SIsE" },
+        { name: "Boomerang TV", id: "65IsA_SshL4" },
+        { name: "Disney Channel", id: "w7pYhp496tg" },
+        { name: "TVRI World", id: "eE5E8MXQpqc" },
+        { name: "TVRI Sport", id: "6a23sxk5_vM" },
+        { name: "Kompas TV", id: "2MC5ltEDu7w" },
+        { name: "CNN Indonesia", id: "YbQwgoMoztA" },
+        { name: "Al Jazeera", id: "_HviSyC7zSU" }
+    ];
+
+    const frame = document.getElementById('main-player');
+    const kill = document.getElementById('kill-screen');
+    const dash = document.getElementById('dash');
+
+    // Mendengarkan perubahan dari Remote Center
+    onValue(ref(db, 'conecta_status'), (snapshot) => {
+        const data = snapshot.val();
+        if(!data) return;
+
+        // Cek Sakelar YouTube (Kill Switch)
+        if (data.connection === "OFF") {
+            kill.style.display = "flex";
+            frame.src = "";
+        } else {
+            kill.style.display = "none";
+            const ch = channels[data.current_ch];
+            frame.src = `https://www.youtube.com/embed/${ch.id}?autoplay=1&controls=0&cc_load_policy=1&cc_lang_pref=id&hl=id`;
+            
+            document.getElementById('ch-name').innerText = ch.name;
+            dash.classList.add('show');
+            setTimeout(() => dash.classList.remove('show'), 5000);
         }
     });
 </script>
