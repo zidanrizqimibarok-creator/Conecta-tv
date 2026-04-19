@@ -2,121 +2,99 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Mionix Blue OS - Apex Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue Chat - Private Messenger</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
-        :root { --accent: #007aff; --bg: #000; --glass: rgba(255, 255, 255, 0.1); }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body, html { background: var(--bg); color: white; height: 100vh; width: 100vw; overflow: hidden; }
+        :root { --blue: #007aff; --dark: #000814; --glass: rgba(255, 255, 255, 0.05); }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--dark); color: white; height: 100vh; overflow: hidden; display: flex; }
 
-        /* 1. AUTO FULLSCREEN OVERLAY */
-        #fs-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); z-index: 10000; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        /* SIDEBAR CONTACTS */
+        #sidebar { width: 350px; background: #001220; border-right: 1px solid rgba(0, 122, 255, 0.2); display: flex; flex-direction: column; }
+        .side-header { padding: 25px; border-bottom: 1px solid #112233; }
+        .user-id { font-size: 12px; color: var(--blue); letter-spacing: 1px; }
+        
+        #contact-list { flex: 1; overflow-y: auto; }
+        .contact-item { padding: 15px 25px; display: flex; align-items: center; gap: 15px; cursor: pointer; transition: 0.3s; }
+        .contact-item:hover { background: var(--glass); }
+        .contact-item.active { background: rgba(0, 122, 255, 0.15); border-left: 4px solid var(--blue); }
+        .avatar { width: 45px; height: 45px; background: var(--blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
 
-        /* 2. BOOTING SEQUENCE (10 DETIK) */
-        #boot-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: #000; z-index: 9999; display: none; flex-direction: column; justify-content: center; align-items: center; }
-        .loader-ring { width: 80px; height: 80px; border: 5px solid #111; border-top: 5px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        /* CHAT AREA */
+        #chat-main { flex: 1; display: flex; flex-direction: column; background: url('https://www.transparenttextures.com/patterns/dark-matter.png'); }
+        .chat-header { padding: 15px 30px; background: rgba(0, 8, 20, 0.8); backdrop-filter: blur(10px); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #112233; }
+        
+        #messages { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .msg { max-width: 70%; padding: 12px 18px; border-radius: 20px; font-size: 15px; position: relative; }
+        .msg.sent { align-self: flex-end; background: var(--blue); color: white; border-bottom-right-radius: 2px; }
+        .msg.received { align-self: flex-start; background: #1b2735; border-bottom-left-radius: 2px; }
 
-        /* 3. LOCK SCREEN SYSTEM */
-        #lock-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: url('https://source.unsplash.com/1600x900/?dark,blue') no-repeat center/cover; z-index: 9000; display: none; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(10px); }
-        .pass-input { background: rgba(255,255,255,0.1); border: 1px solid var(--accent); color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 24px; width: 250px; margin-top: 20px; }
+        .chat-input { padding: 20px; display: flex; gap: 15px; background: #000814; }
+        input { flex: 1; background: #112233; border: none; padding: 15px; border-radius: 12px; color: white; outline: none; }
+        .btn-send { background: var(--blue); border: none; padding: 0 25px; border-radius: 12px; color: white; cursor: pointer; font-weight: bold; }
 
-        /* 4. PERMANENT NAVIGATION (SIDEBAR) */
-        #sidebar { position: fixed; left: 0; top: 0; width: 70px; height: 100%; background: rgba(10,10,10,0.9); border-right: 1px solid #222; display: flex; flex-direction: column; align-items: center; padding-top: 20px; z-index: 8000; }
-        .nav-icon { width: 50px; height: 50px; margin-bottom: 20px; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 12px; transition: 0.3s; font-size: 24px; }
-        .nav-icon:hover { background: var(--accent); }
+        /* CALL OVERLAY */
+        #call-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,8,20,0.95); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .call-btn { width: 70px; height: 70px; border-radius: 50%; border: none; cursor: pointer; margin: 20px; font-size: 24px; }
 
-        /* MAIN CONTENT AREA */
-        main { margin-left: 70px; height: 100vh; display: flex; flex-direction: column; }
-        .top-bar { height: 60px; background: rgba(0,0,0,0.5); display: flex; justify-content: space-between; align-items: center; padding: 0 30px; border-bottom: 1px solid #222; }
-
-        /* DESKTOP */
-        #desktop { flex: 1; padding: 40px; display: grid; grid-template-columns: repeat(auto-fill, 140px); grid-template-rows: repeat(auto-fill, 140px); gap: 20px; }
-        .app { display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: 0.3s; padding: 15px; border-radius: 20px; }
-        .app:hover { background: var(--glass); transform: translateY(-5px); }
-        .app span { font-size: 45px; margin-bottom: 10px; }
-
-        /* SETTINGS PANEL */
-        #settings-panel { position: fixed; right: -100%; top: 0; width: 400px; height: 100%; background: #0a0a0a; border-left: 1px solid #333; transition: 0.5s; z-index: 8500; padding: 40px; overflow-y: auto; }
-        .set-card { background: #151515; padding: 20px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #222; }
-
-        /* WIDGETS */
-        #sms-box { position: fixed; bottom: 80px; right: 20px; width: 300px; height: 400px; background: #050505; border: 1px solid var(--accent); border-radius: 20px; display: none; flex-direction: column; z-index: 8100; }
+        /* REGISTER MODAL */
+        #reg-modal { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--dark); z-index: 2000; display: flex; justify-content: center; align-items: center; }
     </style>
 </head>
 <body>
 
-    <div id="fs-overlay" onclick="initOS()">
-        <div style="text-align:center">
-            <h1 style="letter-spacing:10px">MIONIX APEX</h1>
-            <p style="color:var(--accent); margin-top:20px">Klik untuk Memulai Booting</p>
+    <div id="reg-modal">
+        <div style="text-align:center; width: 300px;">
+            <h1 style="color:var(--blue); margin-bottom: 20px;">BLUE CHAT</h1>
+            <input type="text" id="reg-user" placeholder="Buat ID Unik Kamu..." style="width:100%; margin-bottom:10px;">
+            <button onclick="register()" class="btn-send" style="width:100%; padding:15px;">MULAI CHAT</button>
         </div>
     </div>
 
-    <div id="boot-screen">
-        <div class="loader-ring"></div>
-        <h2 style="margin-top:30px; letter-spacing:5px">SYSTEM LOADING</h2>
-        <div id="boot-progress" style="margin-top:10px; color:var(--accent)">0%</div>
-    </div>
-
-    <div id="lock-screen">
-        <h1 id="lock-time" style="font-size: 80px;">00:00</h1>
-        <p id="lock-date">Senin, 01 Januari</p>
-        <input type="password" id="pin-input" class="pass-input" placeholder="Masukkan PIN">
-        <button onclick="unlockOS()" style="margin-top:15px; background:none; border:none; color:var(--accent); cursor:pointer">Unlock Device</button>
+    <div id="call-overlay">
+        <div class="avatar" style="width:120px; height:120px; font-size: 40px;" id="call-avatar">?</div>
+        <h2 id="call-name" style="margin-top:20px;">Memanggil...</h2>
+        <div style="display:flex;">
+            <button class="call-btn" style="background:#ff3b30;" onclick="endCall()">📵</button>
+            <button class="call-btn" style="background:#4cd964;" id="accept-btn">📞</button>
+        </div>
     </div>
 
     <div id="sidebar">
-        <div class="nav-icon" onclick="location.reload()">🏠</div>
-        <div class="nav-icon" onclick="toggleSettings()">⚙️</div>
-        <div class="nav-icon" onclick="toggleSMS()">💬</div>
-        <div class="nav-icon" onclick="window.open('https://youtube.com/tv')">📺</div>
-        <div style="margin-top:auto" class="nav-icon" onclick="lockDevice()">🔒</div>
+        <div class="side-header">
+            <h3>Blue Chat</h3>
+            <p class="user-id" id="my-id">ID: -</p>
+            <input type="text" id="add-friend" placeholder="+ Tambah ID Teman..." style="margin-top:15px; padding:8px; font-size:12px;">
+            <button onclick="addFriend()" style="background:var(--blue); border:none; color:white; padding:5px 10px; border-radius:5px; font-size:10px; cursor:pointer;">TAMBAH</button>
+        </div>
+        <div id="contact-list">
+            </div>
     </div>
 
-    <main>
-        <div class="top-bar">
-            <div style="font-weight:bold">MIONIX <span style="color:var(--accent)">APEX v5.0</span></div>
-            <div id="clock">00:00:00</div>
+    <div id="chat-main">
+        <div class="chat-header">
+            <div>
+                <h4 id="chat-with">Pilih Kontak</h4>
+                <p style="font-size:10px; color:var(--blue)" id="chat-status">Offline</p>
+            </div>
+            <div>
+                <button onclick="startCall()" style="background:none; border:none; font-size:22px; cursor:pointer;">📞</button>
+            </div>
         </div>
 
-        <div id="desktop">
-            <div class="app" onclick="window.open('https://google.com')"><span>🌐</span><p>Google</p></div>
-            <div class="app" onclick="window.open('https://youtube.com/tv')"><span>🎬</span><p>YouTube</p></div>
-            <div class="app" onclick="alert('Cuaca: Cerah - 29°C')"><span>☀️</span><p>Weather</p></div>
-            <div class="app" onclick="alert('Storage Safe')"><span>📂</span><p>Files</p></div>
-            <div class="app" onclick="alert('Server Maintenance')"><span>🛒</span><p>Store</p></div>
+        <div id="messages">
+            </div>
+
+        <div class="chat-input">
+            <input type="text" id="msg-input" placeholder="Ketik pesan biru...">
+            <button class="btn-send" onclick="sendMessage()">KIRIM</button>
         </div>
-    </main>
-
-    <div id="settings-panel">
-        <h2 style="margin-bottom:30px">System Settings</h2>
-        
-        <div class="set-card">
-            <h4>🔐 Keamanan (Lock Screen)</h4>
-            <p style="font-size:12px; color:#666">Setel PIN untuk masuk ke OS.</p>
-            <input type="text" id="set-pin" placeholder="PIN Baru (Contoh: 1234)">
-            <button onclick="saveSettings()" style="width:100%; padding:10px; background:var(--accent); border:none; color:white; border-radius:5px; margin-top:10px">Simpan PIN</button>
-            <button onclick="removePin()" style="width:100%; padding:10px; background:#333; border:none; color:white; border-radius:5px; margin-top:5px">Hapus PIN</button>
-        </div>
-
-        <div class="set-card">
-            <h4>🔄 Software Update</h4>
-            <input type="text" id="upCode" placeholder="Masukkan Kode Update">
-            <button onclick="startUpdate()" style="width:100%; padding:10px; background:var(--accent); border:none; color:white; border-radius:5px; margin-top:10px">Install Pembaruan</button>
-        </div>
-
-        <button onclick="toggleSettings()" style="width:100%; padding:15px; border:1px solid #444; background:none; color:white; border-radius:10px">Tutup Pengaturan</button>
-    </div>
-
-    <div id="sms-box">
-        <div style="background:var(--accent); padding:15px; text-align:center; font-weight:bold">MIONIX MESSENGER</div>
-        <div id="sms-list" style="flex:1; padding:15px; overflow-y:auto">Menunggu pesan...</div>
     </div>
 
     <script>
-        // FIREBASE CONFIG
+        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyAJDcqRdRUHkU6tbrsQTs8ed0nE0c1yRso",
             authDomain: "zlxtore.firebaseapp.com",
@@ -126,112 +104,113 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        let currentPin = localStorage.getItem('mionix_pin') || "";
+        let myID = localStorage.getItem('bluechat_id');
+        let currentChat = "";
+        let myContacts = JSON.parse(localStorage.getItem('bluechat_contacts') || '{}');
 
-        // 1. INIT OS & FULLSCREEN
-        function initOS() {
-            document.getElementById('fs-overlay').style.display = 'none';
-            document.documentElement.requestFullscreen();
-            startBooting();
+        if(myID) {
+            document.getElementById('reg-modal').style.display = 'none';
+            document.getElementById('my-id').innerText = "ID: " + myID;
+            loadContacts();
         }
 
-        // 2. BOOTING SEQUENCE (10 Detik)
-        function startBooting() {
-            const boot = document.getElementById('boot-screen');
-            boot.style.display = 'flex';
-            let p = 0;
-            const interval = setInterval(() => {
-                p++;
-                document.getElementById('boot-progress').innerText = p + "%";
-                if(p >= 100) {
-                    clearInterval(interval);
-                    boot.style.display = 'none';
-                    checkLock();
-                }
-            }, 100); // 100ms * 100 = 10 detik
-        }
-
-        // 3. LOCK SYSTEM
-        function checkLock() {
-            if(currentPin !== "") {
-                document.getElementById('lock-screen').style.display = 'flex';
-            }
-        }
-
-        function unlockOS() {
-            const input = document.getElementById('pin-input').value;
-            if(input === currentPin) {
-                document.getElementById('lock-screen').style.display = 'none';
-                document.getElementById('pin-input').value = "";
-            } else {
-                alert("PIN Salah!");
-            }
-        }
-
-        function lockDevice() {
-            if(currentPin === "") return alert("Setel PIN di Settings dulu!");
-            document.getElementById('lock-screen').style.display = 'flex';
-        }
-
-        // 4. SETTINGS LOGIC
-        function toggleSettings() {
-            const panel = document.getElementById('settings-panel');
-            panel.style.right = (panel.style.right === '0px') ? '-100%' : '0px';
-        }
-
-        function saveSettings() {
-            const pin = document.getElementById('set-pin').value;
-            if(pin.length < 4) return alert("PIN minimal 4 angka!");
-            localStorage.setItem('mionix_pin', pin);
-            currentPin = pin;
-            alert("PIN Berhasil Disimpan!");
-        }
-
-        function removePin() {
-            localStorage.removeItem('mionix_pin');
-            currentPin = "";
-            alert("PIN Dihapus!");
-        }
-
-        // 10+ FITUR TAMBAHAN:
-        // 1. Auto Fullscreen (saat init)
-        // 2. Real-time Clock & Date
-        // 3. Persistent Sidebar (Navigasi gak hilang)
-        // 4. Password Protection (Lock Screen)
-        // 5. Cloud SMS Sync (Firebase)
-        // 6. 10 Seconds Bootloader
-        // 7. Glassmorphism UI
-        // 8. Software Update Hub
-        // 9. Storage Monitor (Mockup)
-        // 10. Multi-tab Browser support (window.open)
-        // 11. Quick Lock (Gembok icon)
-
-        function toggleSMS() {
-            const box = document.getElementById('sms-box');
-            box.style.display = (box.style.display === 'flex') ? 'none' : 'flex';
-        }
-
-        db.ref('broadcast/sms').on('value', (snap) => {
-            const val = snap.val();
-            if(val) {
-                document.getElementById('sms-list').innerHTML = `<div style="background:#222; padding:10px; border-radius:10px; border-left:4px solid var(--accent)"><b>${val.time}</b><br>${val.text}</div>`;
-            }
-        });
-
-        function startUpdate() {
-            const code = document.getElementById('upCode').value;
-            db.ref('updates/' + code).once('value', (s) => {
-                if(s.exists()) {
-                    document.open(); document.write(s.val().newHtml); document.close();
-                } else { alert("Kode Update Salah!"); }
+        // 1. REGISTER
+        function register() {
+            const id = document.getElementById('reg-user').value.trim().toLowerCase();
+            if(id.length < 3) return alert("ID terlalu pendek!");
+            
+            db.ref('users/' + id).set({ status: 'online' }).then(() => {
+                localStorage.setItem('bluechat_id', id);
+                location.reload();
             });
         }
 
-        setInterval(() => {
-            const d = new Date();
-            document.getElementById('clock').innerText = d.toLocaleTimeString();
-            document.getElementById('lock-time').innerText = d.getHours().toString().padStart(2,'0') + ":" + d.getMinutes().toString().padStart(2,'0');
-        }, 1000);
+        // 2. TAMBAH TEMAN (SIMPAN ALIAS)
+        function addFriend() {
+            const friendID = document.getElementById('add-friend').value.trim().toLowerCase();
+            if(!friendID || friendID === myID) return;
+
+            const alias = prompt("Beri nama panggilan untuk " + friendID + ":");
+            if(alias) {
+                myContacts[friendID] = alias;
+                localStorage.setItem('bluechat_contacts', JSON.stringify(myContacts));
+                loadContacts();
+            }
+        }
+
+        function loadContacts() {
+            const list = document.getElementById('contact-list');
+            list.innerHTML = "";
+            for (let id in myContacts) {
+                list.innerHTML += `
+                    <div class="contact-item" onclick="openChat('${id}')">
+                        <div class="avatar">${myContacts[id][0].toUpperCase()}</div>
+                        <div>
+                            <div style="font-weight:bold">${myContacts[id]}</div>
+                            <div style="font-size:10px; color:#555">@${id}</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // 3. CHAT REALTIME
+        function openChat(id) {
+            currentChat = id;
+            document.getElementById('chat-with').innerText = myContacts[id];
+            document.getElementById('chat-status').innerText = "Terhubung dengan " + id;
+            
+            const chatId = [myID, id].sort().join("_");
+            db.ref('chats/' + chatId).on('value', (snap) => {
+                const msgs = document.getElementById('messages');
+                msgs.innerHTML = "";
+                snap.forEach((child) => {
+                    const data = child.val();
+                    const type = data.sender === myID ? 'sent' : 'received';
+                    msgs.innerHTML += `<div class="msg ${type}">${data.text}</div>`;
+                });
+                msgs.scrollTop = msgs.scrollHeight;
+            });
+        }
+
+        function sendMessage() {
+            const text = document.getElementById('msg-input').value;
+            if(!text || !currentChat) return;
+
+            const chatId = [myID, currentChat].sort().join("_");
+            db.ref('chats/' + chatId).push({
+                sender: myID,
+                text: text,
+                time: Date.now()
+            });
+            document.getElementById('msg-input').value = "";
+        }
+
+        // 4. VOICE CALL (MOCKUP LOGIC)
+        function startCall() {
+            if(!currentChat) return;
+            document.getElementById('call-overlay').style.display = 'flex';
+            document.getElementById('call-name').innerText = "Memanggil " + myContacts[currentChat] + "...";
+            document.getElementById('call-avatar').innerText = myContacts[currentChat][0];
+            
+            // Di sini nanti integrasi WebRTC untuk suara beneran
+            db.ref('calls/' + currentChat).set({ caller: myID, status: 'ringing' });
+        }
+
+        function endCall() {
+            document.getElementById('call-overlay').style.display = 'none';
+            db.ref('calls/' + currentChat).remove();
+        }
+
+        // Listener Panggilan Masuk
+        db.ref('calls/' + myID).on('value', (snap) => {
+            const call = snap.val();
+            if(call && call.status === 'ringing') {
+                const callerAlias = myContacts[call.caller] || call.caller;
+                document.getElementById('call-overlay').style.display = 'flex';
+                document.getElementById('call-name').innerText = callerAlias + " Memanggil...";
+            }
+        });
     </script>
 </body>
 </html>
