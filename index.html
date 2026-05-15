@@ -2,215 +2,85 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blue Chat - Private Messenger</title>
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    <title>i CCTV V3 - Auto AI</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <style>
-        :root { --blue: #007aff; --dark: #000814; --glass: rgba(255, 255, 255, 0.05); }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background: var(--dark); color: white; height: 100vh; overflow: hidden; display: flex; }
-
-        /* SIDEBAR CONTACTS */
-        #sidebar { width: 350px; background: #001220; border-right: 1px solid rgba(0, 122, 255, 0.2); display: flex; flex-direction: column; }
-        .side-header { padding: 25px; border-bottom: 1px solid #112233; }
-        .user-id { font-size: 12px; color: var(--blue); letter-spacing: 1px; }
-        
-        #contact-list { flex: 1; overflow-y: auto; }
-        .contact-item { padding: 15px 25px; display: flex; align-items: center; gap: 15px; cursor: pointer; transition: 0.3s; }
-        .contact-item:hover { background: var(--glass); }
-        .contact-item.active { background: rgba(0, 122, 255, 0.15); border-left: 4px solid var(--blue); }
-        .avatar { width: 45px; height: 45px; background: var(--blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-
-        /* CHAT AREA */
-        #chat-main { flex: 1; display: flex; flex-direction: column; background: url('https://www.transparenttextures.com/patterns/dark-matter.png'); }
-        .chat-header { padding: 15px 30px; background: rgba(0, 8, 20, 0.8); backdrop-filter: blur(10px); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #112233; }
-        
-        #messages { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .msg { max-width: 70%; padding: 12px 18px; border-radius: 20px; font-size: 15px; position: relative; }
-        .msg.sent { align-self: flex-end; background: var(--blue); color: white; border-bottom-right-radius: 2px; }
-        .msg.received { align-self: flex-start; background: #1b2735; border-bottom-left-radius: 2px; }
-
-        .chat-input { padding: 20px; display: flex; gap: 15px; background: #000814; }
-        input { flex: 1; background: #112233; border: none; padding: 15px; border-radius: 12px; color: white; outline: none; }
-        .btn-send { background: var(--blue); border: none; padding: 0 25px; border-radius: 12px; color: white; cursor: pointer; font-weight: bold; }
-
-        /* CALL OVERLAY */
-        #call-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,8,20,0.95); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; }
-        .call-btn { width: 70px; height: 70px; border-radius: 50%; border: none; cursor: pointer; margin: 20px; font-size: 24px; }
-
-        /* REGISTER MODAL */
-        #reg-modal { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--dark); z-index: 2000; display: flex; justify-content: center; align-items: center; }
+        body { margin: 0; background: #000; color: white; font-family: sans-serif; text-align: center; }
+        #video-container { position: relative; width: 100vw; height: 70vh; background: #111; }
+        img { width: 100%; height: 100%; object-fit: contain; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .ui { padding: 20px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        button { padding: 15px; border-radius: 10px; border: none; background: #007aff; color: white; font-weight: bold; }
+        .alert { position: fixed; top: 10px; width: 100%; color: red; font-weight: bold; display: none; z-index: 100; }
+        #loader { position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 200; }
     </style>
 </head>
 <body>
-
-    <div id="reg-modal">
-        <div style="text-align:center; width: 300px;">
-            <h1 style="color:var(--blue); margin-bottom: 20px;">BLUE CHAT</h1>
-            <input type="text" id="reg-user" placeholder="Buat ID Unik Kamu..." style="width:100%; margin-bottom:10px;">
-            <button onclick="register()" class="btn-send" style="width:100%; padding:15px;">MULAI CHAT</button>
-        </div>
+    <div id="loader">MENGUNDUH MESIN AI...</div>
+    <div class="alert" id="warn">⚠️ ADA ORANG!</div>
+    
+    <div id="video-container">
+        <img id="cctv" src="http://192.168.0.105:8080/shot.jpg" crossorigin="anonymous">
+        <canvas id="canvas"></canvas>
     </div>
 
-    <div id="call-overlay">
-        <div class="avatar" style="width:120px; height:120px; font-size: 40px;" id="call-avatar">?</div>
-        <h2 id="call-name" style="margin-top:20px;">Memanggil...</h2>
-        <div style="display:flex;">
-            <button class="call-btn" style="background:#ff3b30;" onclick="endCall()">📵</button>
-            <button class="call-btn" style="background:#4cd964;" id="accept-btn">📞</button>
-        </div>
-    </div>
-
-    <div id="sidebar">
-        <div class="side-header">
-            <h3>Blue Chat</h3>
-            <p class="user-id" id="my-id">ID: -</p>
-            <input type="text" id="add-friend" placeholder="+ Tambah ID Teman..." style="margin-top:15px; padding:8px; font-size:12px;">
-            <button onclick="addFriend()" style="background:var(--blue); border:none; color:white; padding:5px 10px; border-radius:5px; font-size:10px; cursor:pointer;">TAMBAH</button>
-        </div>
-        <div id="contact-list">
-            </div>
-    </div>
-
-    <div id="chat-main">
-        <div class="chat-header">
-            <div>
-                <h4 id="chat-with">Pilih Kontak</h4>
-                <p style="font-size:10px; color:var(--blue)" id="chat-status">Offline</p>
-            </div>
-            <div>
-                <button onclick="startCall()" style="background:none; border:none; font-size:22px; cursor:pointer;">📞</button>
-            </div>
-        </div>
-
-        <div id="messages">
-            </div>
-
-        <div class="chat-input">
-            <input type="text" id="msg-input" placeholder="Ketik pesan biru...">
-            <button class="btn-send" onclick="sendMessage()">KIRIM</button>
-        </div>
+    <div class="ui">
+        <button onclick="toggleAI()" id="btn">START AI SCANNER</button>
+        <button onclick="location.reload()" style="background: #333;">REFRESH</button>
+        <button onclick="snap()" style="background: #34c759;">AMBIL FOTO</button>
     </div>
 
     <script>
-        // --- FIREBASE CONFIG ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyAJDcqRdRUHkU6tbrsQTs8ed0nE0c1yRso",
-            authDomain: "zlxtore.firebaseapp.com",
-            databaseURL: "https://zlxtore-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "zlxtore"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        let model, active = false;
+        const img = document.getElementById('cctv');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
 
-        let myID = localStorage.getItem('bluechat_id');
-        let currentChat = "";
-        let myContacts = JSON.parse(localStorage.getItem('bluechat_contacts') || '{}');
-
-        if(myID) {
-            document.getElementById('reg-modal').style.display = 'none';
-            document.getElementById('my-id').innerText = "ID: " + myID;
-            loadContacts();
-        }
-
-        // 1. REGISTER
-        function register() {
-            const id = document.getElementById('reg-user').value.trim().toLowerCase();
-            if(id.length < 3) return alert("ID terlalu pendek!");
-            
-            db.ref('users/' + id).set({ status: 'online' }).then(() => {
-                localStorage.setItem('bluechat_id', id);
-                location.reload();
-            });
-        }
-
-        // 2. TAMBAH TEMAN (SIMPAN ALIAS)
-        function addFriend() {
-            const friendID = document.getElementById('add-friend').value.trim().toLowerCase();
-            if(!friendID || friendID === myID) return;
-
-            const alias = prompt("Beri nama panggilan untuk " + friendID + ":");
-            if(alias) {
-                myContacts[friendID] = alias;
-                localStorage.setItem('bluechat_contacts', JSON.stringify(myContacts));
-                loadContacts();
-            }
-        }
-
-        function loadContacts() {
-            const list = document.getElementById('contact-list');
-            list.innerHTML = "";
-            for (let id in myContacts) {
-                list.innerHTML += `
-                    <div class="contact-item" onclick="openChat('${id}')">
-                        <div class="avatar">${myContacts[id][0].toUpperCase()}</div>
-                        <div>
-                            <div style="font-weight:bold">${myContacts[id]}</div>
-                            <div style="font-size:10px; color:#555">@${id}</div>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        // 3. CHAT REALTIME
-        function openChat(id) {
-            currentChat = id;
-            document.getElementById('chat-with').innerText = myContacts[id];
-            document.getElementById('chat-status').innerText = "Terhubung dengan " + id;
-            
-            const chatId = [myID, id].sort().join("_");
-            db.ref('chats/' + chatId).on('value', (snap) => {
-                const msgs = document.getElementById('messages');
-                msgs.innerHTML = "";
-                snap.forEach((child) => {
-                    const data = child.val();
-                    const type = data.sender === myID ? 'sent' : 'received';
-                    msgs.innerHTML += `<div class="msg ${type}">${data.text}</div>`;
-                });
-                msgs.scrollTop = msgs.scrollHeight;
-            });
-        }
-
-        function sendMessage() {
-            const text = document.getElementById('msg-input').value;
-            if(!text || !currentChat) return;
-
-            const chatId = [myID, currentChat].sort().join("_");
-            db.ref('chats/' + chatId).push({
-                sender: myID,
-                text: text,
-                time: Date.now()
-            });
-            document.getElementById('msg-input').value = "";
-        }
-
-        // 4. VOICE CALL (MOCKUP LOGIC)
-        function startCall() {
-            if(!currentChat) return;
-            document.getElementById('call-overlay').style.display = 'flex';
-            document.getElementById('call-name').innerText = "Memanggil " + myContacts[currentChat] + "...";
-            document.getElementById('call-avatar').innerText = myContacts[currentChat][0];
-            
-            // Di sini nanti integrasi WebRTC untuk suara beneran
-            db.ref('calls/' + currentChat).set({ caller: myID, status: 'ringing' });
-        }
-
-        function endCall() {
-            document.getElementById('call-overlay').style.display = 'none';
-            db.ref('calls/' + currentChat).remove();
-        }
-
-        // Listener Panggilan Masuk
-        db.ref('calls/' + myID).on('value', (snap) => {
-            const call = snap.val();
-            if(call && call.status === 'ringing') {
-                const callerAlias = myContacts[call.caller] || call.caller;
-                document.getElementById('call-overlay').style.display = 'flex';
-                document.getElementById('call-name').innerText = callerAlias + " Memanggil...";
-            }
+        // Load AI
+        cocoSsd.load().then(m => {
+            model = m;
+            document.getElementById('loader').style.display = 'none';
         });
+
+        // Loop Gambar
+        setInterval(() => {
+            img.src = "http://192.168.0.105:8080/shot.jpg?t=" + Date.now();
+        }, 500);
+
+        async function detect() {
+            if(!active) return;
+            canvas.width = img.clientWidth;
+            canvas.height = img.clientHeight;
+            const preds = await model.detect(img);
+            
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+            let found = false;
+            preds.forEach(p => {
+                if(p.class === 'person') {
+                    found = true;
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(...p.bbox);
+                }
+            });
+            document.getElementById('warn').style.display = found ? 'block' : 'none';
+            requestAnimationFrame(detect);
+        }
+
+        function toggleAI() {
+            active = !active;
+            document.getElementById('btn').innerText = active ? "STOP AI" : "START AI";
+            if(active) detect();
+        }
+
+        function snap() {
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth; c.height = img.naturalHeight;
+            c.getContext('2d').drawImage(img, 0, 0);
+            const a = document.createElement('a');
+            a.href = c.toDataURL(); a.download = 'cctv.png'; a.click();
+        }
     </script>
 </body>
 </html>
